@@ -1,0 +1,2862 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1433">
+<meta name="description" content="손가락으로 돌려 보는 나만의 3D 가상 지구본">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="지구본">
+<title>나의 가상 지구본</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="./icons/favicon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+<script>
+/* 첫 화면 깜빡임 방지: 저장된 테마를 먼저 적용 */
+(function () {
+  var pref = 'system';
+  try { pref = localStorage.getItem('globe.theme') || 'system'; } catch (e) {}
+  var dark = pref === 'dark' || (pref === 'system' && !(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches));
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme-pref', pref);
+})();
+</script>
+<style>
+:root {
+  --space: #060b1e;
+  --space2: #0b1433;
+  --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --radius: 20px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --t: .18s;
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sat: env(safe-area-inset-top, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+/* 다크: 어두운 유리 */
+:root[data-theme="dark"] {
+  --panel: rgba(13, 21, 46, .82);
+  --panel-solid: #0f1834;
+  --panel-border: rgba(140, 180, 255, .18);
+  --text: #eef3ff;
+  --muted: #b4c0de;
+  --accent: #6cc4ff;
+  --accent-text: #04122b;
+  --accent-soft: rgba(108, 196, 255, .16);
+  --field: rgba(255, 255, 255, .07);
+  --field-border: rgba(180, 205, 255, .28);
+  --btn: rgba(255, 255, 255, .08);
+  --btn-hover: rgba(255, 255, 255, .16);
+  --btn-glow: 0 6px 22px rgba(108, 196, 255, .28);
+  --item-hover: rgba(255, 255, 255, .09);
+  --danger: #ff8a8a;
+  --danger-bg: rgba(255, 90, 90, .14);
+  --danger-hover: rgba(255, 90, 90, .26);
+  --ok: #7be3a6;
+  --focus: #ffd84d;
+  --shadow: 0 12px 40px rgba(0, 0, 0, .45);
+  color-scheme: dark;
+}
+/* 라이트: 밝은 유리 */
+:root[data-theme="light"] {
+  --panel: rgba(245, 248, 255, .9);
+  --panel-solid: #f3f6fd;
+  --panel-border: rgba(30, 60, 120, .16);
+  --text: #0e1a33;
+  --muted: #3c4a69;
+  --accent: #1559bd;
+  --accent-text: #ffffff;
+  --accent-soft: rgba(21, 89, 189, .12);
+  --field: rgba(255, 255, 255, .75);
+  --field-border: rgba(30, 60, 120, .3);
+  --btn: rgba(14, 26, 51, .06);
+  --btn-hover: rgba(14, 26, 51, .13);
+  --btn-glow: 0 6px 20px rgba(21, 89, 189, .22);
+  --item-hover: rgba(14, 26, 51, .07);
+  --danger: #b3261e;
+  --danger-bg: rgba(179, 38, 30, .09);
+  --danger-hover: rgba(179, 38, 30, .17);
+  --ok: #1b7a43;
+  --focus: #b0004f;
+  --shadow: 0 12px 40px rgba(10, 20, 50, .25);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--space); }
+body {
+  font-family: var(--font); font-weight: 400; line-height: 1.6; color: var(--text);
+  -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none; touch-action: manipulation;
+}
+button, input, select, textarea { font-family: var(--font); color: inherit; }
+input, select, textarea { font-size: 16px; }
+h2, h3 { margin: 0; font-weight: 700; line-height: 1.35; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 1rem; margin: 18px 0 8px; }
+strong, b { font-weight: 600; }
+.num, time, .tnum { font-variant-numeric: tabular-nums; }
+[hidden] { display: none !important; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ===== 우주 배경과 지구본 (항상 어둡게) ===== */
+#stage { position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 45%, #0d1940 0%, var(--space2) 45%, var(--space) 100%); }
+#stars, #twinkle, #gl, #ov { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#twinkle { animation: twinkle 3.2s ease-in-out infinite alternate; }
+@keyframes twinkle { from { opacity: .25; } to { opacity: 1; } }
+#ov { touch-action: none; outline: none; cursor: grab; }
+#ov.dragging { cursor: grabbing; }
+#ov.pointer { cursor: pointer; }
+#ov.picking { cursor: crosshair; }
+#ov:focus-visible { box-shadow: inset 0 0 0 3px var(--focus); }
+
+#tooltip {
+  position: fixed; left: 0; top: 0; pointer-events: none; z-index: 30; padding: 4px 10px; border-radius: 10px;
+  background: rgba(8, 14, 34, .85); color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap;
+  border: 1px solid rgba(140, 180, 255, .25); transform: translate(14px, 14px);
+}
+
+/* ===== 떠 있는 버튼 ===== */
+#fab {
+  position: fixed; z-index: 20; right: calc(12px + var(--sar)); bottom: calc(14px + var(--sab));
+  display: flex; gap: 10px; align-items: center;
+}
+.fab {
+  width: 50px; height: 50px; border-radius: 50%; border: 1px solid rgba(160, 195, 255, .25);
+  background: rgba(12, 20, 46, .62); color: #fff; font-size: 21px; display: grid; place-items: center;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); cursor: pointer; padding: 0;
+  transition: background var(--t), transform var(--t), box-shadow var(--t);
+}
+.fab svg { width: 24px; height: 24px; transition: transform var(--t); }
+#compassNeedle { transition: transform .2s; }
+#topbar {
+  position: fixed; z-index: 15; left: calc(12px + var(--sal)); top: calc(10px + var(--sat)); right: calc(12px + var(--sar));
+  display: flex; gap: 8px; align-items: flex-start; pointer-events: none; flex-wrap: wrap;
+}
+#topbar > * { pointer-events: auto; }
+.chip-glass {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 12px; border-radius: 999px;
+  background: rgba(12, 20, 46, .66); color: #eef3ff; border: 1px solid rgba(160, 195, 255, .25); font-size: 14px;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.chip-glass button { min-height: 32px; padding: 2px 12px; border-radius: 999px; border: 0; background: #6cc4ff; color: #04122b; font-weight: 600; cursor: pointer; }
+#banner { position: fixed; z-index: 16; left: 50%; transform: translateX(-50%); top: calc(58px + var(--sat)); width: max-content; max-width: min(560px, calc(100% - 24px)); text-align: center; }
+#banner .chip-glass { font-size: 15px; justify-content: center; flex-wrap: wrap; border-radius: 18px; padding: 8px 14px; line-height: 1.45; }
+
+/* ===== 시트·카드 (라이트/다크 적용) ===== */
+.sheet {
+  position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; margin: 0 auto; width: 100%; max-width: 560px;
+  max-height: min(80vh, 80dvh); display: flex; flex-direction: column;
+  background: var(--panel); color: var(--text); border: 1px solid var(--panel-border); border-bottom: 0;
+  border-radius: 22px 22px 0 0; box-shadow: var(--shadow);
+  backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  padding-bottom: var(--sab); animation: sheetIn .22s var(--ease);
+}
+.sheet.small { max-height: min(56vh, 56dvh); }
+.sheet.compact { max-height: min(46vh, 46dvh); }
+@keyframes sheetIn { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sheet > header { display: flex; align-items: center; gap: 8px; padding: 10px 10px 6px 18px; }
+.sheet > header h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-body { overflow-y: auto; padding: 4px 18px 18px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.grabber { position: absolute; top: 6px; left: 50%; width: 38px; height: 4px; margin-left: -19px; border-radius: 4px; background: var(--muted); opacity: .45; }
+@media (orientation: landscape) and (max-height: 620px) {
+  .sheet, .sheet.small, .sheet.compact {
+    left: auto; right: calc(8px + var(--sar)); top: calc(8px + var(--sat)); bottom: calc(8px + var(--sab)); margin: 0;
+    width: min(400px, 52vw); max-height: none; border-radius: 20px; border-bottom: 1px solid var(--panel-border); padding-bottom: 0;
+  }
+  .sheet.small, .sheet.compact { top: auto; max-height: calc(100% - 16px); }
+  #fab { flex-direction: column-reverse; }
+}
+.muted { color: var(--muted); }
+.small-text { font-size: .86rem; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row.end { justify-content: flex-end; }
+.spacer { flex: 1; }
+.stack { display: grid; gap: 8px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+hr { border: 0; border-top: 1px solid var(--panel-border); margin: 14px 0; }
+.note { font-size: .86rem; color: var(--muted); background: var(--accent-soft); border-radius: 12px; padding: 8px 12px; margin: 8px 0; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 6px 0 12px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-weight: 600; }
+
+/* ===== 버튼 ===== */
+.btn {
+  min-height: 44px; padding: 8px 16px; border-radius: 14px; border: 1px solid var(--field-border); background: var(--btn);
+  font-size: 15px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background var(--t), transform var(--t), box-shadow var(--t), border-color var(--t), color var(--t);
+}
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+.btn.danger { color: var(--danger); background: var(--danger-bg); border-color: transparent; }
+.btn.block { width: 100%; }
+.btn .go, .list-item .go { opacity: 0; transition: opacity var(--t), transform var(--t); }
+.icon-btn {
+  width: 44px; height: 44px; flex: none; border-radius: 50%; border: 0; background: transparent; font-size: 20px; line-height: 1;
+  cursor: pointer; display: inline-grid; place-items: center; padding: 0; transition: background var(--t), transform var(--t);
+}
+.icon-btn > span, .icon-btn > svg { transition: transform var(--t); display: inline-block; }
+.icon-btn.danger { color: var(--danger); }
+button:disabled, .btn:disabled, .btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; box-shadow: none; transform: none; }
+.menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.menu-item {
+  min-height: 82px; border-radius: 16px; border: 1px solid var(--panel-border); background: var(--btn); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; font-size: 14px; font-weight: 600;
+  transition: background var(--t), transform var(--t), box-shadow var(--t), border-color var(--t);
+}
+.menu-item .ic { font-size: 24px; line-height: 1.2; }
+.theme-btn { min-width: 44px; min-height: 44px; border-radius: 999px; padding: 4px 12px; font-size: 14px; }
+
+/* 입력 */
+.field { display: grid; gap: 4px; margin: 10px 0; }
+.field > span { font-size: .9rem; color: var(--muted); font-weight: 600; }
+input[type="text"], input[type="search"], input[type="date"], input[type="time"], input[type="number"], select, textarea {
+  width: 100%; min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--field-border);
+  background: var(--field); outline: none; transition: border-color var(--t), box-shadow var(--t);
+}
+textarea { min-height: 84px; resize: vertical; line-height: 1.5; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { border-color: var(--accent); }
+input[type="range"] { width: 100%; height: 44px; accent-color: var(--accent); cursor: pointer; }
+.seg { display: flex; padding: 3px; border-radius: 14px; background: var(--btn); border: 1px solid var(--panel-border); gap: 2px; }
+.seg button {
+  flex: 1; min-height: 40px; border: 0; border-radius: 11px; background: transparent; font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background var(--t), color var(--t), transform var(--t);
+}
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; cursor: pointer; border-radius: 12px; padding: 2px 6px; margin: 0 -6px; transition: background var(--t); }
+.switch { position: relative; width: 50px; height: 30px; flex: none; }
+.switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.switch i { position: absolute; inset: 0; border-radius: 30px; background: var(--btn-hover); border: 1px solid var(--field-border); transition: background var(--t); pointer-events: none; }
+.switch i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); transition: transform var(--t); }
+.switch input:checked + i { background: var(--accent); }
+.switch input:checked + i::after { transform: translateX(20px); }
+.switch input:focus-visible + i { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* 목록 */
+.list { display: grid; gap: 4px; margin: 6px 0; }
+.list-item {
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 10px; border-radius: 14px; border: 0; background: transparent;
+  width: 100%; text-align: left; cursor: pointer; font-size: 15px; transition: background var(--t);
+}
+.list-item .main { flex: 1; min-width: 0; }
+.list-item .t, .list-item .s { display: block; }
+.list-item .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-item .s { font-size: .84rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-item .lead { font-size: 22px; width: 32px; text-align: center; flex: none; }
+.list-row { display: flex; align-items: center; gap: 4px; border-radius: 14px; }
+.list-row > .list-item { flex: 1; min-width: 0; }
+.pin-dot { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 17px; flex: none; border: 2px solid rgba(255,255,255,.8); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.chip {
+  min-height: 36px; padding: 4px 14px; border-radius: 999px; border: 1px solid var(--field-border); background: transparent; font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background var(--t), transform var(--t);
+}
+.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+.empty { text-align: center; color: var(--muted); padding: 22px 8px; }
+
+/* 스타일 카드 */
+.style-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.style-card {
+  border-radius: 16px; border: 2px solid var(--panel-border); background: var(--btn); padding: 10px; cursor: pointer; text-align: center; font-size: 14px; font-weight: 600;
+  transition: transform var(--t), box-shadow var(--t), border-color var(--t), background var(--t);
+}
+.style-card[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.mini-globe {
+  width: 64px; height: 64px; margin: 0 auto 6px; border-radius: 50%; background-size: 200% 100%; background-position: 0 50%;
+  box-shadow: inset -10px -8px 18px rgba(0,0,0,.45), 0 0 10px rgba(120,190,255,.35); transition: background-position 1.2s ease;
+}
+
+/* 퀴즈 */
+.quiz-opts { display: grid; gap: 8px; margin: 10px 0; }
+.quiz-opt {
+  min-height: 50px; border-radius: 14px; border: 1px solid var(--field-border); background: var(--btn); font-size: 16px; font-weight: 600; cursor: pointer; text-align: left; padding: 8px 14px;
+  transition: background var(--t), transform var(--t), box-shadow var(--t), border-color var(--t);
+}
+.quiz-opt.right { background: rgba(60, 200, 120, .25); border-color: var(--ok); }
+.quiz-opt.wrong { background: var(--danger-bg); border-color: var(--danger); }
+.progress { height: 6px; border-radius: 6px; background: var(--btn-hover); overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.stat-big { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bar-row { display: grid; grid-template-columns: 82px 1fr 52px; gap: 8px; align-items: center; font-size: .9rem; margin: 4px 0; }
+.bar { height: 10px; border-radius: 10px; background: var(--btn-hover); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+
+/* 토스트·대화상자 */
+#toasts { position: fixed; z-index: 90; left: 50%; transform: translateX(-50%); top: calc(10px + var(--sat)); display: grid; gap: 8px; width: min(92vw, 440px); pointer-events: none; }
+.toast {
+  pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: var(--panel-solid); color: var(--text);
+  border: 1px solid var(--panel-border); box-shadow: var(--shadow); font-size: 15px; animation: sheetIn .2s var(--ease);
+}
+.toast .msg { flex: 1; }
+.toast .btn { min-height: 36px; padding: 4px 12px; }
+#dialog { position: fixed; inset: 0; z-index: 80; background: rgba(0, 4, 16, .55); display: grid; place-items: center; padding: 18px; }
+#dialog .box { width: min(420px, 100%); background: var(--panel-solid); color: var(--text); border: 1px solid var(--panel-border); border-radius: 20px; padding: 18px; box-shadow: var(--shadow); max-height: 86vh; overflow: auto; }
+#dialog .box p { margin: 8px 0 14px; white-space: pre-line; }
+#loading { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; pointer-events: none; color: #cfe0ff; font-size: 15px; }
+#loading span { background: rgba(8, 14, 34, .7); padding: 8px 16px; border-radius: 999px; }
+.err-box { margin: 10px 0; padding: 10px 14px; border-radius: 12px; background: var(--danger-bg); color: var(--danger); font-weight: 600; }
+.reminder { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--accent-soft); margin-bottom: 12px; font-size: 14px; }
+.reminder .msg { flex: 1; }
+.flag { font-size: 2.1rem; line-height: 1; }
+.card-head { display: flex; gap: 12px; align-items: center; margin-bottom: 6px; }
+.card-head .names { min-width: 0; }
+.card-head .ko { font-size: 1.2rem; font-weight: 700; }
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.swatch { width: 40px; height: 40px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; transition: transform var(--t), border-color var(--t); }
+.swatch[aria-pressed="true"] { border-color: var(--text); }
+.emoji-pick { display: flex; gap: 4px; flex-wrap: wrap; }
+.emoji-pick button { width: 44px; height: 44px; border-radius: 12px; border: 1px solid transparent; background: var(--btn); font-size: 22px; cursor: pointer; transition: background var(--t), transform var(--t); }
+.emoji-pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.check { width: 22px; height: 22px; accent-color: var(--accent); flex: none; cursor: pointer; }
+.clock-time { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.suggest { position: relative; }
+.suggest .list { position: absolute; z-index: 3; left: 0; right: 0; top: 100%; margin-top: 4px; background: var(--panel-solid); border: 1px solid var(--panel-border); border-radius: 14px; padding: 4px; box-shadow: var(--shadow); max-height: 220px; overflow: auto; }
+
+/* ===== 공통 상호작용 ===== */
+button, .btn, .menu-item, .list-item, .chip, .seg button, .style-card, .quiz-opt, .swatch, .switch-row, .fab, .icon-btn, select, input[type="range"], label.switch-row { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.fab:focus-visible { outline: 2px solid #ffd84d; }
+.btn:active, .icon-btn:active, .menu-item:active, .list-item:active, .chip:active, .seg button:active, .style-card:active, .quiz-opt:active, .fab:active, .swatch:active, .emoji-pick button:active { transform: scale(.97); }
+button:disabled:active { transform: none; }
+
+/* 호버: 마우스가 있는 기기에서만 */
+@media (hover: hover) and (pointer: fine) {
+  .btn:not(:disabled):hover { background: var(--btn-hover); transform: translateY(-1.5px); box-shadow: var(--btn-glow); }
+  .btn.primary:not(:disabled):hover { background: var(--accent); filter: brightness(1.1); }
+  .btn.danger:not(:disabled):hover { background: var(--danger-hover); box-shadow: 0 6px 20px rgba(255, 80, 80, .25); }
+  .btn:not(:disabled):hover .go { opacity: 1; }
+  .icon-btn:not(:disabled):hover { background: var(--btn-hover); }
+  .icon-btn:not(:disabled):hover > span, .icon-btn:not(:disabled):hover > svg { transform: scale(1.08); }
+  .icon-btn.danger:not(:disabled):hover { background: var(--danger-hover); }
+  .fab:hover { background: rgba(40, 70, 140, .8); box-shadow: 0 0 18px rgba(108, 196, 255, .45); }
+  .fab:hover svg, .fab:hover > span { transform: scale(1.08); }
+  .menu-item:hover { background: var(--btn-hover); transform: translateY(-2px); box-shadow: var(--btn-glow); border-color: var(--accent); }
+  .list-item:hover { background: var(--item-hover); }
+  .list-item:hover .go { opacity: 1; transform: translateX(2px); }
+  .chip:not([aria-pressed="true"]):hover { background: var(--btn-hover); }
+  .seg button:not([aria-pressed="true"]):hover { background: var(--btn-hover); }
+  .style-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(108, 196, 255, .3); }
+  .style-card:hover .mini-globe { background-position: 60% 50%; }
+  .quiz-opt:not(:disabled):hover { background: var(--btn-hover); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .switch-row:hover { background: var(--item-hover); }
+  .swatch:hover { transform: scale(1.1); }
+  .emoji-pick button:hover { background: var(--btn-hover); }
+  .chip-glass button:hover { filter: brightness(1.12); }
+  .toast .btn:hover { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; }
+  #twinkle { animation: none; opacity: .7; }
+  .btn:hover, .menu-item:hover, .style-card:hover, .list-item:hover .go, .icon-btn:hover > span, .icon-btn:hover > svg, .fab:hover svg, .swatch:hover { transform: none !important; }
+  .btn:active, .icon-btn:active, .menu-item:active, .list-item:active, .chip:active, .seg button:active, .style-card:active, .quiz-opt:active, .fab:active { transform: none; }
+  .style-card:hover .mini-globe { background-position: 0 50%; }
+}
+@media (max-width: 380px) {
+  .menu-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .menu-item { min-height: 74px; font-size: 13px; }
+  .fab { width: 46px; height: 46px; }
+  #fab { gap: 8px; }
+}
+.grid3 .btn { padding: 8px 6px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="stage" aria-hidden="false">
+  <canvas id="stars"></canvas>
+  <canvas id="twinkle"></canvas>
+  <canvas id="gl"></canvas>
+  <canvas id="ov" tabindex="0" role="application" aria-label="지구본. 방향키로 돌리고 더하기·빼기 키로 확대·축소합니다."></canvas>
+</div>
+<div id="tooltip" hidden></div>
+
+<div id="topbar">
+  <div id="timeChip" class="chip-glass" hidden></div>
+</div>
+<div id="banner" hidden></div>
+
+<nav id="fab" aria-label="빠른 메뉴">
+  <button class="fab" id="btnSearch" type="button" aria-label="검색" title="검색">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.6-4.6"/></svg>
+  </button>
+  <button class="fab" id="btnCompass" type="button" aria-label="북쪽이 위로 오게 정렬" title="북쪽이 위로">
+    <svg viewBox="0 0 24 24"><g id="compassNeedle" style="transform-origin:12px 12px"><path d="M12 2.5l3.6 9.5h-7.2z" fill="#ff6b6b"/><path d="M12 21.5l-3.6-9.5h7.2z" fill="#e8eefc"/></g></svg>
+  </button>
+  <button class="fab" id="btnHome" type="button" aria-label="한국으로 돌아가기" title="한국으로 돌아가기">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5.5v-6h-5v6H4z"/></svg>
+  </button>
+  <button class="fab" id="btnMenu" type="button" aria-label="메뉴 열기" title="메뉴">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+</nav>
+
+<section class="sheet" id="sheet" hidden role="dialog" aria-modal="false" aria-labelledby="sheetTitle">
+  <div class="grabber"></div>
+  <header><h2 id="sheetTitle"></h2><span id="sheetHeadExtra"></span><button class="icon-btn" type="button" data-act="close" aria-label="닫기"><span>✕</span></button></header>
+  <div class="sheet-body" id="sheetBody"></div>
+</section>
+
+<div id="toasts" aria-live="polite"></div>
+<div id="dialog" hidden role="alertdialog" aria-modal="true"><div class="box" id="dialogBox"></div></div>
+<div id="loading" hidden><span>지구를 그리는 중…</span></div>
+<input type="file" id="fileInput" accept=".json,application/json" hidden>
+
+<script src="./world-data.js" onerror="window.WORLD_DATA_ERROR=true"></script>
+<script>
+'use strict';
+/* =========================================================
+ * 나의 가상 지구본 — 앱 본체
+ * ========================================================= */
+const APP_NAME = '나의 가상 지구본';
+const APP_VERSION = '1.0.0';
+const FORMAT_VERSION = 1;
+const DEG = Math.PI / 180;
+const EARTH_KM = 6371.0088;
+const KM_PER_MI = 1.609344;
+const FLIGHT_KMH = 900;
+const HOME = { lat: 36.4, lon: 127.8 };
+
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeInOut = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const wrapLon = l => ((l + 540) % 360 + 360) % 360 - 180;
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const nowISO = () => new Date().toISOString();
+const reducedMotion = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const isTouchUI = () => !(window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches);
+
+/* ---------- 저장소 (localStorage를 못 써도 멈추지 않게) ---------- */
+const store = (() => {
+  const P = 'globe.';
+  let ok = true;
+  const mem = {};
+  try { const k = P + '__t'; localStorage.setItem(k, '1'); localStorage.removeItem(k); } catch (e) { ok = false; }
+  const problems = [];
+  return {
+    get ok() { return ok; }, problems,
+    get(key, def) {
+      let raw = null;
+      try { raw = ok ? localStorage.getItem(P + key) : (key in mem ? mem[key] : null); } catch (e) { raw = null; }
+      if (raw == null) return def;
+      try { return JSON.parse(raw); } catch (e) { problems.push(key); return def; }
+    },
+    set(key, val) {
+      const raw = JSON.stringify(val);
+      if (!ok) { mem[key] = raw; return true; }
+      try { localStorage.setItem(P + key, raw); return true; }
+      catch (e) { toast('저장 공간이 부족하거나 저장할 수 없어 변경 내용을 기기에 저장하지 못했어요.'); return false; }
+    },
+    raw(key) { try { return ok ? localStorage.getItem(P + key) : mem[key]; } catch (e) { return null; } },
+    setRaw(key, raw) { if (!ok) { mem[key] = raw; return; } if (raw == null) localStorage.removeItem(P + key); else localStorage.setItem(P + key, raw); },
+  };
+})();
+
+/* ---------- 데이터 ---------- */
+const WD = (window.WORLD_DATA && Array.isArray(window.WORLD_DATA.countries)) ? window.WORLD_DATA : null;
+const COUNTRIES = [];
+const CBYID = {};
+const CITIES = [];
+const CITYBYKEY = {};
+const CONTINENTS = ['아시아', '유럽', '아프리카', '북아메리카', '남아메리카', '오세아니아', '남극', '기타'];
+
+function prepareData() {
+  if (!WD) return;
+  WD.countries.forEach((c, i) => {
+    const polys = [];
+    let bx0 = 999, by0 = 999, bx1 = -999, by1 = -999;
+    for (const poly of c.p) {
+      const rings = poly.map(r => { const a = new Float32Array(r.length); for (let k = 0; k < r.length; k++) a[k] = r[k] / 100; return a; });
+      const o = rings[0];
+      let x0 = 999, y0 = 999, x1 = -999, y1 = -999;
+      for (let k = 0; k < o.length; k += 2) { x0 = Math.min(x0, o[k]); x1 = Math.max(x1, o[k]); y0 = Math.min(y0, o[k + 1]); y1 = Math.max(y1, o[k + 1]); }
+      polys.push({ rings, bb: [x0, y0, x1, y1] });
+      bx0 = Math.min(bx0, x0); by0 = Math.min(by0, y0); bx1 = Math.max(bx1, x1); by1 = Math.max(by1, y1);
+    }
+    let main = polys[0];
+    for (const q of polys) if ((q.bb[2] - q.bb[0]) * (q.bb[3] - q.bb[1]) > (main.bb[2] - main.bb[0]) * (main.bb[3] - main.bb[1])) main = q;
+    // 라벨 위치가 들어 있는 폴리곤이 있으면 그것을 본토로 사용
+    for (const q of polys) if (c.lx >= q.bb[0] && c.lx <= q.bb[2] && c.ly >= q.bb[1] && c.ly <= q.bb[3]) { main = q; break; }
+    const country = Object.assign({}, c, { idx: i + 1, polys, bb: [bx0, by0, bx1, by1], mainBB: main.bb });
+    delete country.p;
+    country.flag = flagEmoji(c.iso2);
+    country.cho = choseong(c.ko);
+    COUNTRIES.push(country);
+    CBYID[c.id] = country;
+  });
+  WD.cities.forEach(c => {
+    const city = Object.assign({}, c, { key: c.c + ':' + c.en });
+    city.cho = choseong(c.ko);
+    city.country = CBYID[c.c] || null;
+    CITIES.push(city); CITYBYKEY[city.key] = city;
+  });
+}
+function flagEmoji(iso2) {
+  if (!iso2 || !/^[A-Z]{2}$/.test(iso2)) return '🏳️';
+  return String.fromCodePoint(...[...iso2].map(ch => 0x1F1E6 + ch.charCodeAt(0) - 65));
+}
+const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+function choseong(s) {
+  let r = '';
+  for (const ch of String(s || '')) {
+    const code = ch.charCodeAt(0) - 0xAC00;
+    if (code >= 0 && code < 11172) r += CHO[Math.floor(code / 588)];
+    else if (ch !== ' ') r += ch.toLowerCase();
+  }
+  return r;
+}
+const isChoQuery = q => /^[ㄱ-ㅎ\s]+$/.test(q);
+
+/* 점이 국가 폴리곤 안에 있는지 (경계 상자로 먼저 거르기) */
+function pointInRing(r, x, y) {
+  let inside = false;
+  for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
+    const xi = r[i], yi = r[i + 1], xj = r[j], yj = r[j + 1];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function countryAt(lat, lon) {
+  if (lat == null) return null;
+  for (const c of COUNTRIES) {
+    const b = c.bb;
+    if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue;
+    for (const p of c.polys) {
+      const q = p.bb;
+      if (lon < q[0] || lon > q[2] || lat < q[1] || lat > q[3]) continue;
+      let inside = false;
+      for (const r of p.rings) if (pointInRing(r, lon, lat)) inside = !inside;
+      if (inside) return c;
+    }
+  }
+  return null;
+}
+
+/* ---------- 설정과 기록 ---------- */
+const DEFAULT_SETTINGS = {
+  style: 'satellite', borders: true, grid: 'off', special: false, cities: true, names: true, clouds: true,
+  autoRotate: true, quality: 'normal', units: 'km', clock24: true, wakeLock: false,
+};
+const S = Object.assign({}, DEFAULT_SETTINGS, store.get('settings', {}));
+if (!['satellite', 'political', 'simple', 'night'].includes(S.style)) S.style = 'satellite';
+if (!['high', 'normal', 'saver'].includes(S.quality)) S.quality = 'normal';
+let PINS = sanitizePins(store.get('pins', []));
+let VISITED = new Set((store.get('visited', []) || []).filter(id => typeof id === 'string'));
+let CLOCKS = store.get('clocks', null);
+let QUIZ = store.get('quiz', {}) || {};
+let META = store.get('meta', {}) || {};
+if (!Array.isArray(CLOCKS)) CLOCKS = ['KOR:Seoul', 'GBR:London', 'USA:New York', 'FRA:Paris', 'AUS:Sydney'];
+if (typeof QUIZ !== 'object' || Array.isArray(QUIZ)) QUIZ = {};
+
+function sanitizePins(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.filter(p => p && typeof p === 'object' && typeof p.name === 'string' && p.name.trim() && isFinite(p.lat) && isFinite(p.lon))
+    .map(p => ({
+      id: String(p.id || uid()), name: String(p.name).slice(0, 80), memo: String(p.memo || '').slice(0, 2000),
+      color: /^#[0-9a-f]{6}$/i.test(p.color) ? p.color : '#ff6b6b', emoji: String(p.emoji || '📍').slice(0, 8),
+      cat: p.cat === 'wish' ? 'wish' : 'visited', lat: clamp(+p.lat, -90, 90), lon: wrapLon(+p.lon),
+      createdAt: p.createdAt || nowISO(), updatedAt: p.updatedAt || p.createdAt || nowISO(),
+    }));
+}
+const saveSettings = () => store.set('settings', S);
+const savePins = () => store.set('pins', PINS);
+const saveVisited = () => store.set('visited', [...VISITED]);
+const saveClocks = () => store.set('clocks', CLOCKS);
+const saveQuiz = () => store.set('quiz', QUIZ);
+const saveMeta = () => store.set('meta', META);
+
+/* ---------- 카메라·투영 (정사영) ---------- */
+const cam = { lat: HOME.lat, lon: HOME.lon, zoom: 1, roll: 0 };
+const view = { w: 1, h: 1, dpr: 1, cx: 0, cy: 0, R: 100, padB: 0, padR: 0, padBT: 0, padRT: 0, U: [1, 0, 0], V: [0, 1, 0], C: [0, 0, 1] };
+const MIN_ZOOM = 0.55, MAX_ZOOM = 26;
+function ecef(lat, lon) {
+  const la = lat * DEG, lo = lon * DEG, cl = Math.cos(la);
+  return [cl * Math.cos(lo), cl * Math.sin(lo), Math.sin(la)];
+}
+function updateView() {
+  view.R = Math.min(view.w, view.h) * 0.42 * cam.zoom;
+  view.cx = (view.w - view.padR) / 2; view.cy = (view.h - view.padB) / 2;
+  const la = cam.lat * DEG, lo = cam.lon * DEG;
+  const C = ecef(cam.lat, cam.lon);
+  const E = [-Math.sin(lo), Math.cos(lo), 0];
+  const N = [-Math.sin(la) * Math.cos(lo), -Math.sin(la) * Math.sin(lo), Math.cos(la)];
+  const cr = Math.cos(cam.roll), sr = Math.sin(cam.roll);
+  view.U = [cr * E[0] - sr * N[0], cr * E[1] - sr * N[1], cr * E[2] - sr * N[2]];
+  view.V = [sr * E[0] + cr * N[0], sr * E[1] + cr * N[1], sr * E[2] + cr * N[2]];
+  view.C = C;
+}
+/* 위도·경도 → 화면 좌표 (CSS 픽셀), d<0이면 뒤쪽 반구 */
+function project(lat, lon, out) {
+  const p = ecef(lat, lon);
+  return projectVec(p, out);
+}
+function projectVec(p, out = {}) {
+  const U = view.U, V = view.V, C = view.C;
+  out.x = view.cx + view.R * (p[0] * U[0] + p[1] * U[1] + p[2] * U[2]);
+  out.y = view.cy - view.R * (p[0] * V[0] + p[1] * V[1] + p[2] * V[2]);
+  out.d = p[0] * C[0] + p[1] * C[1] + p[2] * C[2];
+  return out;
+}
+/* 화면 좌표 → 위도·경도 (역투영). 지구 밖이면 null */
+function unproject(x, y) {
+  const u = (x - view.cx) / view.R, v = (view.cy - y) / view.R;
+  const d2 = u * u + v * v;
+  if (d2 > 1) return null;
+  const w = Math.sqrt(1 - d2), U = view.U, V = view.V, C = view.C;
+  const px = u * U[0] + v * V[0] + w * C[0], py = u * U[1] + v * V[1] + w * C[1], pz = u * U[2] + v * V[2] + w * C[2];
+  return { lat: Math.asin(clamp(pz, -1, 1)) / DEG, lon: Math.atan2(py, px) / DEG };
+}
+function gcDistanceKm(a, b) {
+  const la1 = a.lat * DEG, la2 = b.lat * DEG, dla = la2 - la1, dlo = (b.lon - a.lon) * DEG;
+  const h = Math.sin(dla / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dlo / 2) ** 2;
+  return 2 * EARTH_KM * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+function gcPoints(a, b, n) {
+  const A = ecef(a.lat, a.lon), B = ecef(b.lat, b.lon);
+  const dot = clamp(A[0] * B[0] + A[1] * B[1] + A[2] * B[2], -1, 1), om = Math.acos(dot), so = Math.sin(om);
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    if (so < 1e-6) { pts.push(A); continue; }
+    const k1 = Math.sin((1 - t) * om) / so, k2 = Math.sin(t * om) / so;
+    pts.push([k1 * A[0] + k2 * B[0], k1 * A[1] + k2 * B[1], k1 * A[2] + k2 * B[2]]);
+  }
+  return pts;
+}
+const vecToLatLon = p => ({ lat: Math.asin(clamp(p[2], -1, 1)) / DEG, lon: Math.atan2(p[1], p[0]) / DEG });
+
+/* ---------- 태양 위치 (태양이 바로 위에 오는 지점) ---------- */
+const TIME_RANGE_MS = 366 * 86400000;
+const sim = { live: true, offset: 0, playing: false, speed: 3600 };   // speed: 실제 1초당 흐르는 초
+function simDate() {
+  return new Date(Date.now() + (sim.live ? 0 : sim.offset));
+}
+function setSimTime(ms) {
+  const off = clamp(ms - Date.now(), -TIME_RANGE_MS, TIME_RANGE_MS);
+  sim.offset = off; sim.live = false;
+}
+function subsolar(date) {
+  const jd = date.getTime() / 86400000 + 2440587.5;
+  const n = jd - 2451545.0;
+  const L = (280.460 + 0.9856474 * n) % 360;
+  const g = ((357.528 + 0.9856003 * n) % 360) * DEG;
+  const lam = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * DEG;
+  const eps = (23.439 - 0.0000004 * n) * DEG;
+  const ra = Math.atan2(Math.cos(eps) * Math.sin(lam), Math.cos(lam));
+  const dec = Math.asin(Math.sin(eps) * Math.sin(lam));
+  const gmst = ((18.697374558 + 24.06570982441908 * n) % 24 + 24) % 24;
+  const lon = wrapLon(ra / DEG - gmst * 15);
+  return { lat: dec / DEG, lon };
+}
+
+/* ---------- 시간대 ---------- */
+const fmtCache = {};
+function dtf(tz, opts) {
+  const key = tz + JSON.stringify(opts);
+  if (!fmtCache[key]) {
+    try { fmtCache[key] = new Intl.DateTimeFormat('ko-KR', Object.assign({ timeZone: tz }, opts)); }
+    catch (e) { fmtCache[key] = null; }
+  }
+  return fmtCache[key];
+}
+function tzOffsetMin(tz, date) {
+  const f = dtf(tz, { hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' });
+  if (!f) return null;
+  const parts = {};
+  for (const p of f.formatToParts(date)) parts[p.type] = p.value;
+  const asUTC = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour % 24, +parts.minute, +parts.second);
+  return Math.round((asUTC - Math.floor(date.getTime() / 1000) * 1000) / 60000);
+}
+function fmtTime(tz, date, withDate) {
+  const opts = { hour: 'numeric', minute: '2-digit', hourCycle: S.clock24 ? 'h23' : 'h12' };
+  if (withDate) { opts.month = 'long'; opts.day = 'numeric'; opts.weekday = 'short'; }
+  const f = dtf(tz, opts);
+  return f ? f.format(date) : '—';
+}
+function fmtLocal(date, withYear) {
+  const opts = { month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', hourCycle: S.clock24 ? 'h23' : 'h12' };
+  if (withYear) opts.year = 'numeric';
+  return new Intl.DateTimeFormat('ko-KR', opts).format(date);
+}
+function fmtOffsetDiff(mins) {
+  if (mins === 0) return '한국과 같음';
+  const sign = mins > 0 ? '+' : '−', a = Math.abs(mins), h = Math.floor(a / 60), m = a % 60;
+  return `한국보다 ${sign}${h}시간${m ? ' ' + m + '분' : ''}`;
+}
+function fmtLatLon(lat, lon) {
+  return `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
+}
+function fmtDist(km) {
+  const v = S.units === 'mi' ? km / KM_PER_MI : km;
+  return Math.round(v).toLocaleString('ko-KR') + (S.units === 'mi' ? ' 마일' : ' km');
+}
+function ymd(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/* ---------- 노이즈 (가로로 이어지는 값 노이즈) ---------- */
+function makeNoise(seed) {
+  const perm = new Uint8Array(512);
+  let s = seed >>> 0 || 1;
+  const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  const vals = new Float32Array(256);
+  for (let i = 0; i < 256; i++) { perm[i] = i; vals[i] = rnd(); }
+  for (let i = 255; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = perm[i]; perm[i] = perm[j]; perm[j] = t; }
+  for (let i = 0; i < 256; i++) perm[i + 256] = perm[i];
+  const h = (x, y) => vals[perm[(perm[x & 255] + y) & 511]];
+  // period: 가로 방향 반복 주기(격자 칸 수)
+  function noise(x, y, period) {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const x0 = ((xi % period) + period) % period, x1 = (x0 + 1) % period;
+    const a = h(x0, yi), b = h(x1, yi), c = h(x0, yi + 1), d = h(x1, yi + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+  return function fbm(x, y, period, oct) {
+    let sum = 0, amp = 0.5, f = 1, norm = 0;
+    for (let o = 0; o < oct; o++) { sum += amp * noise(x * f, y * f, period * f); norm += amp; amp *= 0.5; f *= 2; }
+    return sum / norm;
+  };
+}
+
+/* ---------- 지도 텍스처 만들기 (Canvas 2D, 적도원통도법) ---------- */
+const TEX = { size: 0, base: null, id: null, idArr: null, border: null, borderArr: null, clouds: null, lights: null, version: 0 };
+function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function pathCountry(ctx, c, W, H) {
+  for (const p of c.polys) for (const r of p.rings) {
+    for (let k = 0; k < r.length; k += 2) {
+      const x = (r[k] + 180) / 360 * W, y = (90 - r[k + 1]) / 180 * H;
+      if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+  }
+}
+/* 국가 번호 지도: 안티앨리어싱 없는 스캔라인 채우기 (강조·방문 색칠용) */
+function buildIdMap(W, H) {
+  const arr = new Uint8Array(W * H);
+  const xs = [];
+  for (const c of COUNTRIES) {
+    for (const p of c.polys) {
+      const y0 = Math.max(0, Math.floor((90 - p.bb[3]) / 180 * H)), y1 = Math.min(H - 1, Math.ceil((90 - p.bb[1]) / 180 * H));
+      for (let j = y0; j <= y1; j++) {
+        const lat = 90 - (j + 0.5) / H * 180;
+        xs.length = 0;
+        for (const r of p.rings) {
+          for (let i = 0, k = r.length - 2; i < r.length; k = i, i += 2) {
+            const ya = r[i + 1], yb = r[k + 1];
+            if ((ya > lat) !== (yb > lat)) xs.push(r[i] + (lat - ya) / (yb - ya) * (r[k] - r[i]));
+          }
+        }
+        xs.sort((a, b) => a - b);
+        for (let q = 0; q + 1 < xs.length; q += 2) {
+          const xa = Math.max(0, Math.ceil((xs[q] + 180) / 360 * W - 0.5)), xb = Math.min(W - 1, Math.floor((xs[q + 1] + 180) / 360 * W - 0.5));
+          for (let x = xa; x <= xb; x++) arr[j * W + x] = c.idx;
+        }
+      }
+    }
+  }
+  return arr;
+}
+const POL_COLORS = ['#e9c46a', '#8ecae6', '#f4a6a6', '#a7d7a0', '#c9b6e4', '#f6bd88', '#9fd8cf', '#e6d99a'];
+function renderStyle(style, W, H, idArr, idW, idH) {
+  const cv = mkCanvas(W, H), ctx = cv.getContext('2d');
+  if (style === 'political' || style === 'simple' || style === 'night') {
+    const ocean = style === 'political' ? '#3f74b5' : style === 'simple' ? '#2b5e9e' : '#050a19';
+    ctx.fillStyle = ocean; ctx.fillRect(0, 0, W, H);
+    if (style === 'political') {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, 'rgba(255,255,255,.12)'); g.addColorStop(.5, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(255,255,255,.12)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
+    for (const c of COUNTRIES) {
+      ctx.beginPath(); pathCountry(ctx, c, W, H);
+      ctx.fillStyle = style === 'political' ? POL_COLORS[(c.color + c.idx % 2 * 3) % POL_COLORS.length]
+        : style === 'simple' ? '#d9e4c8' : '#121a30';
+      if (c.id === 'ATA') ctx.fillStyle = style === 'night' ? '#1a2238' : '#eef3f7';
+      ctx.fill('evenodd');
+    }
+    ctx.lineWidth = Math.max(1, W / 2048); ctx.strokeStyle = style === 'night' ? 'rgba(110,140,200,.35)' : 'rgba(30,50,80,.35)';
+    for (const c of COUNTRIES) { ctx.beginPath(); pathCountry(ctx, c, W, H); ctx.stroke(); }
+    return cv;
+  }
+  // 가상 위성: 위도와 노이즈로 꾸며 낸 색
+  const sw = W / 8, sh = H / 8;
+  const mc = mkCanvas(sw, sh), mctx = mc.getContext('2d');
+  mctx.fillStyle = '#000'; mctx.fillRect(0, 0, sw, sh); mctx.fillStyle = '#fff';
+  for (const c of COUNTRIES) { mctx.beginPath(); pathCountry(mctx, c, sw, sh); mctx.fill('evenodd'); }
+  const blurC = mkCanvas(W / 2, H / 2), bctx = blurC.getContext('2d');
+  bctx.imageSmoothingEnabled = true; bctx.drawImage(mc, 0, 0, W / 2, H / 2);
+  const tc = mkCanvas(W / 16, H / 16), tctx = tc.getContext('2d'); tctx.drawImage(mc, 0, 0, W / 16, H / 16);
+  bctx.globalAlpha = .6; bctx.drawImage(tc, 0, 0, W / 2, H / 2); bctx.globalAlpha = 1;
+  const blur = bctx.getImageData(0, 0, W / 2, H / 2).data;
+  // 육지 마스크 (안티앨리어싱 포함)
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#fff';
+  for (const c of COUNTRIES) { ctx.beginPath(); pathCountry(ctx, c, W, H); ctx.fill('evenodd'); }
+  // 노이즈는 낮은 해상도로 만든 뒤 부드럽게 늘려서 사용
+  const nw = 512, nh = 256, fbm = makeNoise(7);
+  const nc = mkCanvas(nw, nh), nctx = nc.getContext('2d'), nimg = nctx.createImageData(nw, nh);
+  for (let j = 0; j < nh; j++) for (let i = 0; i < nw; i++) {
+    const a = fbm(i / 32, j / 32, 16, 5), b = fbm(i / 16 + 50, j / 16 + 20, 32, 3);
+    const o = (j * nw + i) * 4; nimg.data[o] = a * 255; nimg.data[o + 1] = b * 255; nimg.data[o + 2] = 0; nimg.data[o + 3] = 255;
+  }
+  nctx.putImageData(nimg, 0, 0);
+  const nb = mkCanvas(W, H), nbctx = nb.getContext('2d'); nbctx.imageSmoothingEnabled = true; nbctx.drawImage(nc, 0, 0, W, H);
+  const nd = nbctx.getImageData(0, 0, W, H).data;
+  const img = ctx.getImageData(0, 0, W, H), d = img.data;
+  const sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  const bw = W / 2;
+  for (let y = 0; y < H; y++) {
+    const lat = 90 - (y + 0.5) / H * 180, al = Math.abs(lat);
+    const desertBand = Math.exp(-Math.pow((al - 24) / 9, 2));
+    const snowLine = 64;
+    const polarFade = sm(66, 84, al);   // 극지방에서 노이즈가 한 점으로 모여 줄무늬가 생기지 않게
+    for (let x = 0; x < W; x++) {
+      const o = (y * W + x) * 4;
+      const land = d[o] / 255;
+      const n1 = lerp(nd[o] / 255, .5, polarFade), n2 = lerp(nd[o + 1] / 255, .5, polarFade);
+      const grain = (((x * 73856093 ^ y * 19349663) & 255) / 255 - 0.5) * (1 - polarFade);
+      // 바다: 깊은 남색 ~ 해안 근처 밝은 청록
+      const bo = ((y >> 1) * bw + (x >> 1)) * 4, shore = blur[bo] / 255;
+      let orr = 10 + 20 * shore + n2 * 8, og = 34 + 60 * shore + n2 * 14, ob = 82 + 70 * shore + n2 * 18;
+      const polarSea = sm(55, 80, al); orr = lerp(orr, 60, polarSea * .35); og = lerp(og, 90, polarSea * .35); ob = lerp(ob, 120, polarSea * .35);
+      // 육지
+      let r = 46, g = 98, b = 44;                                  // 숲
+      const trop = 1 - sm(8, 20, al);
+      r = lerp(r, 24, trop); g = lerp(g, 82, trop); b = lerp(b, 34, trop);
+      const sav = sm(10, 18, al) * (1 - sm(36, 46, al)) * sm(.35, .6, n1);
+      r = lerp(r, 148, sav * .7); g = lerp(g, 140, sav * .7); b = lerp(b, 72, sav * .7);
+      const des = clamp(desertBand * sm(.30, .55, n1 + 0.15) * 1.25, 0, 1);
+      r = lerp(r, 206, des); g = lerp(g, 176, des); b = lerp(b, 118, des);
+      const tun = sm(52, 62, al);
+      r = lerp(r, 112, tun); g = lerp(g, 118, tun); b = lerp(b, 92, tun);
+      const snow = sm(snowLine - 6, snowLine + 6, al + (n1 - .5) * 18);
+      r = lerp(r, 236, snow); g = lerp(g, 241, snow); b = lerp(b, 246, snow);
+      const mt = sm(.62, .8, n2) * (1 - snow) * .5;                // 산지처럼 어둡거나 바위색
+      r = lerp(r, 118, mt); g = lerp(g, 106, mt); b = lerp(b, 92, mt);
+      const v = 1 + grain * .08 + (n1 - .5) * .18;
+      d[o] = clamp(lerp(orr, r * v, land), 0, 255); d[o + 1] = clamp(lerp(og, g * v, land), 0, 255); d[o + 2] = clamp(lerp(ob, b * v, land), 0, 255); d[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return cv;
+}
+function renderBorders(W, H) {
+  const cv = mkCanvas(W, H), ctx = cv.getContext('2d');
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1, W / 1600); ctx.lineJoin = 'round';
+  for (const c of COUNTRIES) { ctx.beginPath(); pathCountry(ctx, c, W, H); ctx.stroke(); }
+  const d = ctx.getImageData(0, 0, W, H).data, a = new Uint8Array(W * H);
+  for (let i = 0; i < a.length; i++) a[i] = d[i * 4 + 3];
+  return a;
+}
+function renderClouds(W, H) {
+  const cv = mkCanvas(W, H), ctx = cv.getContext('2d'), img = ctx.createImageData(W, H), d = img.data;
+  const fbm = makeNoise(31);
+  const cell = W / 16;
+  for (let y = 0; y < H; y++) {
+    const lat = 90 - (y + .5) / H * 180, al = Math.abs(lat);
+    const band = 0.42 + 0.16 * Math.exp(-Math.pow(lat / 8, 2)) + 0.14 * Math.exp(-Math.pow((al - 55) / 12, 2)) - 0.14 * Math.exp(-Math.pow((al - 25) / 8, 2));
+    for (let x = 0; x < W; x++) {
+      const n = fbm(x / cell, y / cell * 1.6, 16, 5);
+      const v = clamp((n + band - 0.86) * 3.2, 0, 1) * (1 - clamp((al - 70) / 14, 0, 1));
+      const o = (y * W + x) * 4; d[o] = d[o + 1] = d[o + 2] = 255; d[o + 3] = v * 235;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return cv;
+}
+function renderLights(W, H, idArr, idW, idH) {
+  const cv = mkCanvas(W, H), ctx = cv.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  let s = 12345; const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  const onLand = (lon, lat) => { const x = Math.floor((lon + 180) / 360 * idW), y = Math.floor((90 - lat) / 180 * idH); return x >= 0 && x < idW && y >= 0 && y < idH && idArr[y * idW + x] > 0; };
+  ctx.globalCompositeOperation = 'lighter';
+  const sc = W / 2048;
+  for (const c of CITIES) {
+    const x = (c.lon + 180) / 360 * W, y = (90 - c.lat) / 180 * H;
+    const rad = (c.imp === 1 ? 9 : c.imp === 2 ? 6 : 4) * sc;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad * 2.4);
+    g.addColorStop(0, 'rgba(255,226,160,.95)'); g.addColorStop(.35, 'rgba(255,190,110,.45)'); g.addColorStop(1, 'rgba(255,170,90,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - rad * 2.4, y - rad * 2.4, rad * 4.8, rad * 4.8);
+    const cnt = c.imp === 1 ? 70 : c.imp === 2 ? 40 : 18;
+    for (let i = 0; i < cnt; i++) {
+      const ang = rnd() * Math.PI * 2, dist = Math.pow(rnd(), 1.6) * (c.imp === 1 ? 6 : 4);
+      const lat = c.lat + Math.sin(ang) * dist, lon = c.lon + Math.cos(ang) * dist / Math.max(.3, Math.cos(c.lat * DEG));
+      if (!onLand(wrapLon(lon), lat)) continue;
+      const px = (wrapLon(lon) + 180) / 360 * W, py = (90 - lat) / 180 * H, a = .25 + rnd() * .5;
+      ctx.fillStyle = `rgba(255,${200 + rnd() * 40 | 0},${120 + rnd() * 60 | 0},${a})`;
+      ctx.fillRect(px, py, Math.max(1, sc * 1.4), Math.max(1, sc * 1.4));
+    }
+  }
+  // 사람이 많이 사는 위도대의 흩어진 불빛 (꾸며 낸 효과)
+  const fbm = makeNoise(99);
+  for (let i = 0; i < 9000; i++) {
+    const lat = -45 + rnd() * 110, lon = -180 + rnd() * 360;
+    if (!onLand(lon, lat)) continue;
+    const n = fbm((lon + 180) / 6, (90 - lat) / 6, 60, 3);
+    if (n < 0.56 || Math.abs(lat) > 62) continue;
+    if (Math.exp(-Math.pow((Math.abs(lat) - 23) / 7, 2)) > rnd() * 1.1) continue;   // 사막 위도대는 불빛을 적게
+    const px = (lon + 180) / 360 * W, py = (90 - lat) / 180 * H;
+    ctx.fillStyle = `rgba(255,205,140,${(n - .5) * 1.2})`;
+    ctx.fillRect(px, py, Math.max(1, sc * 1.2), Math.max(1, sc * 1.2));
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  return cv;
+}
+const QUALITY = {
+  high: { tex: 4096, dpr: 2, clouds: 1024, shadow: true },
+  normal: { tex: 2048, dpr: 1.75, clouds: 1024, shadow: false },
+  saver: { tex: 1024, dpr: 1, clouds: 512, shadow: false },
+};
+function buildTextures(full) {
+  const q = QUALITY[S.quality];
+  let W = q.tex;
+  if (GL.gl) W = Math.min(W, GL.maxTex || 4096);
+  const H = W / 2;
+  const idW = Math.min(2048, W), idH = idW / 2;
+  if (full || !TEX.id || TEX.idW !== idW) {
+    TEX.idArr = buildIdMap(idW, idH); TEX.idW = idW; TEX.idH = idH;
+    TEX.borderArr = renderBorders(idW, idH);
+    TEX.lights = renderLights(idW, idH, TEX.idArr, idW, idH);
+  }
+  if (full || !TEX.clouds || TEX.cloudW !== q.clouds) { TEX.clouds = renderClouds(q.clouds, q.clouds / 2); TEX.cloudW = q.clouds; }
+  TEX.base = renderStyle(S.style, W, H, TEX.idArr, idW, idH);
+  TEX.size = W; TEX.version++;
+  TEX.baseData = null;
+}
+/* =========================================================
+ * 렌더링: WebGL 셰이더 지구 + 2D 대체 렌더링 + 2D 오버레이
+ * ========================================================= */
+const GL = { gl: null, prog: null, tex: {}, loc: {}, maxTex: 4096, lost: false, failed: false };
+const STATE_TEX = new Uint8Array(256 * 4);
+const ui = { hoverId: 0, selectedId: 0, quizId: 0, quizWrongId: 0, hoverMarker: null };
+
+const VS = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.0,1.0);}';
+const FS = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform vec2 uCenter; uniform float uR;
+uniform vec3 uU; uniform vec3 uV; uniform vec3 uC; uniform vec3 uSun;
+uniform sampler2D tBase; uniform sampler2D tId; uniform sampler2D tState; uniform sampler2D tBorder; uniform sampler2D tCloud; uniform sampler2D tLight;
+uniform float uBorders; uniform float uClouds; uniform float uCloudOff; uniform float uNight; uniform float uShadow;
+uniform vec2 uIdSize;
+const float PI = 3.14159265359;
+vec4 stateAt(vec2 u){
+  float id = floor(texture2D(tId, vec2(fract(u.x), clamp(u.y, 0.0, 1.0))).r * 255.0 + 0.5);
+  vec4 c = texture2D(tState, vec2((id + 0.5) / 256.0, 0.5));
+  return vec4(c.rgb * c.a, c.a);   // 미리 곱한 알파로 섞기
+}
+vec4 atmo(vec2 q, float r){
+  float k = max(r - 1.0, 0.0);
+  float glow = exp(-k * 13.0) * 0.9;
+  vec3 dir = normalize(q.x * uU + q.y * uV + 1e-5);
+  float s = clamp(dot(dir, uSun) * 0.55 + 0.6, 0.28, 1.0);
+  float a = glow * s * smoothstep(0.0, 0.004, k + 0.004);
+  return vec4(vec3(0.36, 0.66, 1.0) * a, a * 0.92);
+}
+void main(){
+  vec2 q = (gl_FragCoord.xy - uCenter) / uR;
+  float d2 = dot(q, q);
+  float r = sqrt(d2);
+  vec4 at = atmo(q, r);
+  if (d2 >= 1.0) { gl_FragColor = at; return; }
+  float w = sqrt(1.0 - d2);
+  vec3 p = q.x * uU + q.y * uV + w * uC;
+  float lat = asin(clamp(p.z, -1.0, 1.0));
+  float lon = atan(p.y, p.x);
+  vec2 uv = vec2(lon / (2.0 * PI) + 0.5, 0.5 - lat / PI);
+  vec3 col = texture2D(tBase, uv).rgb;
+  // 나라별 색 상태: 주변 4개 칸을 이중선형으로 섞어 가장자리를 부드럽게
+  vec2 tp = uv * uIdSize - 0.5, f = fract(tp), base0 = (floor(tp) + 0.5) / uIdSize, dt = 1.0 / uIdSize;
+  vec4 s00 = stateAt(base0), s10 = stateAt(base0 + vec2(dt.x, 0.0)), s01 = stateAt(base0 + vec2(0.0, dt.y)), s11 = stateAt(base0 + dt);
+  vec4 st = mix(mix(s00, s10, f.x), mix(s01, s11, f.x), f.y);
+  float b = texture2D(tBorder, uv).r * uBorders;
+  col = mix(col, uNight > 0.5 ? vec3(0.55, 0.7, 1.0) : vec3(1.0, 0.97, 0.86), b * 0.6);
+  float ndl = dot(p, uSun);
+  float day = smoothstep(-0.11, 0.09, ndl);
+  float cl = 0.0;
+  if (uClouds > 0.5) {
+    vec2 cuv = vec2(uv.x + uCloudOff, uv.y);
+    if (uShadow > 0.5) { float sh = texture2D(tCloud, cuv + vec2(0.0022, 0.0018)).a; col *= 1.0 - sh * 0.3 * day; }
+    cl = texture2D(tCloud, cuv).a;
+    col = mix(col, uNight > 0.5 ? vec3(0.2, 0.24, 0.34) : vec3(0.95, 0.97, 1.0), cl * (uNight > 0.5 ? 0.55 : 0.82));
+  }
+  vec3 lights = texture2D(tLight, uv).rgb;
+  float shade = uNight > 0.5 ? mix(0.62, 1.0, day) : mix(0.2, 1.0, day);
+  float lk = uNight > 0.5 ? 1.0 : (1.0 - day);
+  col = col * shade * (0.8 + 0.2 * w) + lights * lk * (1.0 - cl * 0.75) * 1.15;
+  // 방문·선택·퀴즈 색은 밤 쪽에서도 보이게 조명 뒤에 섞음
+  if (st.a > 0.001) col = mix(col, st.rgb / st.a * mix(0.6, 1.0, day), st.a);
+  col = mix(col, vec3(0.5, 0.74, 1.0), pow(1.0 - w, 3.0) * 0.55 * (0.25 + 0.75 * day));
+  col += vec3(0.28, 0.1, 0.0) * exp(-pow(ndl / 0.07, 2.0)) * 0.18 * (1.0 - uNight);
+  float a = clamp((1.0 - r) * uR + 0.5, 0.0, 1.0);
+  gl_FragColor = vec4(col * a + at.rgb * (1.0 - a), a + at.a * (1.0 - a));
+}`;
+
+let glCanvas = null, ovCanvas = null, ovCtx = null, fb2d = null;
+function initGL() {
+  glCanvas = $('#gl');
+  let gl = null;
+  try {
+    const opts = { alpha: true, premultipliedAlpha: true, antialias: false, preserveDrawingBuffer: false, powerPreference: 'default' };
+    gl = glCanvas.getContext('webgl', opts) || glCanvas.getContext('experimental-webgl', opts);
+  } catch (e) { gl = null; }
+  if (!gl || new URLSearchParams(location.search).has('nogl')) { GL.failed = true; GL.gl = null; return false; }
+  GL.gl = gl;
+  GL.maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048;
+  glCanvas.addEventListener('webglcontextlost', e => { e.preventDefault(); GL.lost = true; }, false);
+  glCanvas.addEventListener('webglcontextrestored', () => {
+    GL.lost = false;
+    try { setupGLObjects(); uploadAllTextures(); requestRender(); toast('화면을 다시 불러왔어요.'); }
+    catch (e) { switchTo2D(); }
+  }, false);
+  setupGLObjects();
+  return true;
+}
+function setupGLObjects() {
+  const gl = GL.gl;
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  GL.prog = p; gl.useProgram(p);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+  const a = gl.getAttribLocation(p, 'a'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+  for (const n of ['uCenter', 'uR', 'uU', 'uV', 'uC', 'uSun', 'tBase', 'tId', 'tState', 'tBorder', 'tCloud', 'tLight', 'uBorders', 'uClouds', 'uCloudOff', 'uNight', 'uShadow', 'uIdSize']) GL.loc[n] = gl.getUniformLocation(p, n);
+  GL.tex = {};
+  ['tBase', 'tId', 'tState', 'tBorder', 'tCloud', 'tLight'].forEach((n, i) => { GL.tex[n] = gl.createTexture(); gl.uniform1i(GL.loc[n], i); });
+}
+function glTex(name, unit, src, opts) {
+  const gl = GL.gl;
+  gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, GL.tex[name]);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  if (opts.raw) gl.texImage2D(gl.TEXTURE_2D, 0, opts.format, opts.w, opts.h, 0, opts.format, gl.UNSIGNED_BYTE, src);
+  else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+  const f = opts.nearest ? gl.NEAREST : gl.LINEAR;
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, f); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, f);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, opts.repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+}
+function uploadAllTextures() {
+  if (!GL.gl || GL.lost || !TEX.base) return;
+  const gl = GL.gl;
+  glTex('tBase', 0, TEX.base, {});
+  glTex('tId', 1, TEX.idArr, { raw: true, format: gl.LUMINANCE, w: TEX.idW, h: TEX.idH, nearest: true });
+  glTex('tState', 2, STATE_TEX, { raw: true, format: gl.RGBA, w: 256, h: 1, nearest: true });
+  glTex('tBorder', 3, TEX.borderArr, { raw: true, format: gl.LUMINANCE, w: TEX.idW, h: TEX.idH });
+  glTex('tCloud', 4, TEX.clouds, { repeat: true });
+  glTex('tLight', 5, TEX.lights, {});
+  GL.uploaded = TEX.version;
+}
+/* 나라별 색 상태: 방문(색칠), 선택, 마우스 강조, 퀴즈 */
+function updateStateTex() {
+  STATE_TEX.fill(0);
+  const set = (idx, r, g, b, a) => { const o = idx * 4; STATE_TEX[o] = r; STATE_TEX[o + 1] = g; STATE_TEX[o + 2] = b; STATE_TEX[o + 3] = a; };
+  const quizOn = !!quiz.active;
+  if (!quizOn) for (const id of VISITED) { const c = CBYID[id]; if (c) set(c.idx, 255, 186, 64, 120); }
+  if (ui.hoverId && !isTouchUI()) { const o = ui.hoverId * 4; if (STATE_TEX[o + 3]) set(ui.hoverId, 255, 214, 120, 165); else set(ui.hoverId, 255, 255, 255, 60); }
+  if (ui.selectedId) set(ui.selectedId, 120, 220, 255, 120);
+  if (ui.quizWrongId) set(ui.quizWrongId, 255, 90, 90, 150);
+  if (ui.quizId) set(ui.quizId, 255, 64, 140, 170);
+  if (GL.gl && !GL.lost && GL.uploaded) {
+    const gl = GL.gl; gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, GL.tex.tState);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 1, gl.RGBA, gl.UNSIGNED_BYTE, STATE_TEX);
+  }
+  requestRender();
+}
+function cloudOffset() { return (Date.now() % 2400000) / 2400000; }
+function drawGL() {
+  const gl = GL.gl;
+  if (!gl || GL.lost) return;
+  if (!TEX.base) { gl.viewport(0, 0, glCanvas.width, glCanvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); return; }
+  if (GL.uploaded !== TEX.version) uploadAllTextures();
+  const W = glCanvas.width, H = glCanvas.height, dpr = W / view.w;
+  gl.viewport(0, 0, W, H);
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  const L = GL.loc, sun = ecef(SUN.lat, SUN.lon);
+  gl.uniform2f(L.uCenter, view.cx * dpr, H - view.cy * dpr);
+  gl.uniform1f(L.uR, view.R * dpr);
+  gl.uniform3fv(L.uU, view.U); gl.uniform3fv(L.uV, view.V); gl.uniform3fv(L.uC, view.C); gl.uniform3fv(L.uSun, sun);
+  gl.uniform1f(L.uBorders, S.borders ? 1 : 0);
+  gl.uniform1f(L.uClouds, S.clouds ? 1 : 0);
+  gl.uniform1f(L.uCloudOff, cloudOffset());
+  gl.uniform1f(L.uNight, S.style === 'night' ? 1 : 0);
+  gl.uniform1f(L.uShadow, QUALITY[S.quality].shadow ? 1 : 0);
+  gl.uniform2f(L.uIdSize, TEX.idW, TEX.idH);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+/* ---------- WebGL을 쓸 수 없을 때: 2D 대체 렌더링 ---------- */
+function switchTo2D() {
+  GL.failed = true; GL.gl = null;
+  const old = $('#gl'), c = document.createElement('canvas');
+  c.id = 'gl'; old.replaceWith(c); glCanvas = c;
+  fb2d = { ctx: c.getContext('2d'), buf: null };
+  resize();
+}
+function draw2D() {
+  if (!fb2d) fb2d = { ctx: glCanvas.getContext('2d'), buf: null };
+  const ctx = fb2d.ctx, W = glCanvas.width, H = glCanvas.height, dpr = W / view.w;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H);
+  if (!TEX.base) return;
+  if (!TEX.baseData || TEX.baseDataV !== TEX.version) {
+    TEX.baseData = TEX.base.getContext('2d').getImageData(0, 0, TEX.base.width, TEX.base.height).data; TEX.baseDataV = TEX.version;
+  }
+  const R = view.R, cx = view.cx, cy = view.cy;
+  // 대기 빛무리(간단)
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const g = ctx.createRadialGradient(cx, cy, R * .98, cx, cy, R * 1.12);
+  g.addColorStop(0, 'rgba(90,160,255,.55)'); g.addColorStop(1, 'rgba(90,160,255,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.12, 0, Math.PI * 2); ctx.fill();
+  // 화면에 보이는 영역만 낮은 해상도로 계산
+  const x0 = Math.max(0, cx - R), y0 = Math.max(0, cy - R), x1 = Math.min(view.w, cx + R), y1 = Math.min(view.h, cy + R);
+  if (x1 <= x0 || y1 <= y0) return;
+  const scale = Math.min(1, 380 / Math.max(x1 - x0, y1 - y0));
+  const bw = Math.max(1, Math.ceil((x1 - x0) * scale)), bh = Math.max(1, Math.ceil((y1 - y0) * scale));
+  if (!fb2d.buf || fb2d.buf.width !== bw || fb2d.buf.height !== bh) { fb2d.buf = mkCanvas(bw, bh); fb2d.bctx = fb2d.buf.getContext('2d'); fb2d.img = fb2d.bctx.createImageData(bw, bh); }
+  const d = fb2d.img.data, bd = TEX.baseData, TW = TEX.base.width, TH = TEX.base.height, ia = TEX.idArr, IW = TEX.idW, IH = TEX.idH;
+  const U = view.U, V = view.V, C = view.C, sun = ecef(SUN.lat, SUN.lon), night = S.style === 'night';
+  const ba = TEX.borderArr;
+  for (let j = 0; j < bh; j++) {
+    const v = (cy - (y0 + (j + .5) / scale)) / R;
+    for (let i = 0; i < bw; i++) {
+      const u = ((x0 + (i + .5) / scale) - cx) / R, o = (j * bw + i) * 4, d2 = u * u + v * v;
+      if (d2 >= 1) { d[o + 3] = 0; continue; }
+      const w = Math.sqrt(1 - d2);
+      const px = u * U[0] + v * V[0] + w * C[0], py = u * U[1] + v * V[1] + w * C[1], pz = u * U[2] + v * V[2] + w * C[2];
+      const lat = Math.asin(pz), lon = Math.atan2(py, px);
+      const tu = lon / (2 * Math.PI) + .5, tv = .5 - lat / Math.PI;
+      const tx = Math.min(TW - 1, tu * TW | 0), ty = Math.min(TH - 1, tv * TH | 0), to = (ty * TW + tx) * 4;
+      let r = bd[to], gg = bd[to + 1], b = bd[to + 2];
+      const ix = Math.min(IW - 1, tu * IW | 0), iy = Math.min(IH - 1, tv * IH | 0), id = ia[iy * IW + ix], so = id * 4, sa = STATE_TEX[so + 3] / 255;
+      if (S.borders) { const bb = ba[iy * IW + ix] / 255 * .55; r = lerp(r, 255, bb); gg = lerp(gg, 247, bb); b = lerp(b, 220, bb); }
+      const ndl = px * sun[0] + py * sun[1] + pz * sun[2];
+      const day = clamp((ndl + .1) / .2, 0, 1);
+      const sh = (night ? lerp(.62, 1, day) : lerp(.22, 1, day)) * (.8 + .2 * w);
+      r *= sh; gg *= sh; b *= sh;
+      if (sa) { const k = lerp(.6, 1, day); r = lerp(r, STATE_TEX[so] * k, sa); gg = lerp(gg, STATE_TEX[so + 1] * k, sa); b = lerp(b, STATE_TEX[so + 2] * k, sa); }
+      d[o] = r; d[o + 1] = gg; d[o + 2] = b; d[o + 3] = 255;
+    }
+  }
+  fb2d.bctx.putImageData(fb2d.img, 0, 0);
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(fb2d.buf, x0, y0, x1 - x0, y1 - y0); ctx.restore();
+}
+
+/* ---------- 배경 별 ---------- */
+function drawStars() {
+  const a = $('#stars'), b = $('#twinkle'), dpr = view.dpr;
+  for (const c of [a, b]) { c.width = Math.round(view.w * dpr); c.height = Math.round(view.h * dpr); }
+  const ca = a.getContext('2d'), cb = b.getContext('2d');
+  let s = 4242; const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  const n = Math.round(view.w * view.h / 2600);
+  for (let i = 0; i < n; i++) {
+    const x = rnd() * a.width, y = rnd() * a.height, r = (rnd() * rnd() * 1.4 + .3) * dpr, al = .25 + rnd() * .6;
+    const twk = rnd() < .18;
+    const ctx = twk ? cb : ca;
+    ctx.fillStyle = `rgba(${200 + rnd() * 55 | 0},${215 + rnd() * 40 | 0},255,${twk ? Math.min(1, al + .3) : al})`;
+    ctx.beginPath(); ctx.arc(x, y, twk ? r * 1.25 : r, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+/* ---------- 오버레이 (이름, 마커, 격자, 항로, 핀) ---------- */
+const FONT = getComputedStyle(document.documentElement).getPropertyValue('--font') || 'sans-serif';
+let HITS = [];
+const _p = {}, _q = {};
+function ovLine(ctx, pts) {
+  // pts: ECEF 점 배열. 뒤쪽 반구는 그리지 않음
+  let prev = null, started = false;
+  ctx.beginPath();
+  for (const v of pts) {
+    const p = projectVec(v, { x: 0, y: 0, d: 0 });
+    if (p.d > 0) {
+      if (!started) {
+        if (prev) { const t = prev.d / (prev.d - p.d); ctx.moveTo(lerp(prev.x, p.x, t), lerp(prev.y, p.y, t)); ctx.lineTo(p.x, p.y); }
+        else ctx.moveTo(p.x, p.y);
+        started = true;
+      } else ctx.lineTo(p.x, p.y);
+    } else if (started && prev) {
+      const t = prev.d / (prev.d - p.d); ctx.lineTo(lerp(prev.x, p.x, t), lerp(prev.y, p.y, t)); started = false;
+    }
+    prev = p;
+  }
+  ctx.stroke();
+}
+function latLine(lat, step = 2) { const pts = []; for (let lo = -180; lo <= 180; lo += step) pts.push(ecef(lat, lo)); return pts; }
+function lonLine(lon, step = 2) { const pts = []; for (let la = -90; la <= 90; la += step) pts.push(ecef(la, lon)); return pts; }
+function edgeAlpha(d) { return clamp((d - 0.04) / 0.16, 0, 1); }
+
+function labelText(ctx, text, x, y, size, weight, color, placed, opts = {}) {
+  ctx.font = `${weight} ${size}px ${FONT}`;
+  const w = ctx.measureText(text).width, h = size * 1.1;
+  const align = opts.align || 'center';
+  const bx = align === 'left' ? x : x - w / 2, by = y - h / 2;
+  const rect = [bx - 3, by - 2, bx + w + 3, by + h + 2];
+  if (rect[2] < 0 || rect[0] > view.w || rect[3] < 0 || rect[1] > view.h) return false;
+  for (const r of placed) if (rect[0] < r[2] && rect[2] > r[0] && rect[1] < r[3] && rect[3] > r[1]) return false;
+  placed.push(rect);
+  ctx.globalAlpha = opts.alpha == null ? 1 : opts.alpha;
+  ctx.textAlign = align; ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, size * .3); ctx.strokeStyle = opts.halo || 'rgba(4,9,24,.86)';
+  ctx.strokeText(text, x, y); ctx.fillStyle = color; ctx.fillText(text, x, y);
+  ctx.globalAlpha = 1;
+  return true;
+}
+function drawOverlay(time) {
+  const ctx = ovCtx, dpr = view.dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, view.w, view.h);
+  HITS = [];
+  if (!WD) return;
+  const z = cam.zoom, quizOn = !!quiz.active;
+  // 격자선
+  if (S.grid !== 'off') {
+    const step = S.grid === '10' ? 10 : 30;
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(190,220,255,.32)';
+    for (let la = -90 + step; la < 90; la += step) ovLine(ctx, latLine(la));
+    for (let lo = -180; lo < 180; lo += step) ovLine(ctx, lonLine(lo));
+  }
+  // 적도·회귀선·극권
+  const specials = [];
+  if (S.special) {
+    const tilt = 23.44, pol = 90 - tilt;
+    const lines = [[0, '적도', 'rgba(255,214,102,.85)', []], [tilt, '북회귀선', 'rgba(255,170,120,.75)', [6, 5]], [-tilt, '남회귀선', 'rgba(255,170,120,.75)', [6, 5]],
+      [pol, '북극권', 'rgba(150,220,255,.8)', [3, 5]], [-pol, '남극권', 'rgba(150,220,255,.8)', [3, 5]]];
+    ctx.lineWidth = 1.4;
+    for (const [la, name, col, dash] of lines) {
+      ctx.strokeStyle = col; ctx.setLineDash(dash); ovLine(ctx, latLine(la, 1.5)); specials.push([la, name, col]);
+    }
+    ctx.setLineDash([]);
+  }
+  // 항로
+  if (route.a && route.b) drawRoute(ctx, time);
+  // 지점 고르기 표시
+  for (const pt of [route.pickA, route.pickB]) if (pt) {
+    const p = project(pt.lat, pt.lon, _p); if (p.d > 0) { ctx.fillStyle = '#ffd84d'; ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, 7); ctx.fill(); ctx.stroke(); }
+  }
+  const placed = [];
+  // 핀 (가장 위)
+  const pinDraw = [];
+  for (const pin of PINS) {
+    const p = project(pin.lat, pin.lon, { x: 0, y: 0, d: 0 });
+    if (p.d <= 0.02) continue;
+    pinDraw.push([pin, p]);
+    placed.push([p.x - 14, p.y - 40, p.x + 14, p.y + 2]);
+  }
+  // 이름 후보
+  if (S.names && z < 3.2) {
+    const a = clamp((3.2 - z) / 1.2, 0, 1);
+    for (const l of WD.labels.continents) {
+      const p = project(l.lat, l.lon, _p); if (p.d < .1) continue;
+      labelText(ctx, l.ko, p.x, p.y, 17, 700, 'rgba(255,255,255,.92)', placed, { alpha: a * edgeAlpha(p.d) });
+    }
+    for (const l of WD.labels.oceans) {
+      const p = project(l.lat, l.lon, _p); if (p.d < .1) continue;
+      labelText(ctx, l.ko, p.x, p.y, 15, 600, 'rgba(170,215,255,.95)', placed, { alpha: a * edgeAlpha(p.d) });
+    }
+  }
+  for (const [la, name, col] of specials) {
+    const lon = cam.lon + 18 / Math.max(1, z);
+    const p = project(la, lon, _p); if (p.d > .2) labelText(ctx, name, p.x, p.y - 9, 11, 600, col, placed);
+  }
+  // 도시 점 자리를 먼저 확보해서 이름이 점을 가리지 않게
+  let cityList = [];
+  if (S.cities) {
+    const maxImp = z < 1.6 ? 1 : z < 3.2 ? 2 : 3;
+    for (const c of CITIES) {
+      if (c.imp > maxImp) continue;
+      const p = project(c.lat, c.lon, { x: 0, y: 0, d: 0 });
+      if (p.d < .05 || p.x < -20 || p.x > view.w + 20 || p.y < -20 || p.y > view.h + 20) continue;
+      cityList.push([c, p]); placed.push([p.x - 5, p.y - 5, p.x + 5, p.y + 5]);
+    }
+    cityList.sort((a, b) => a[0].imp - b[0].imp || b[0].cap - a[0].cap);
+  }
+  if (!quizOn) {
+    const maxRank = 1.2 + z * 2.1;
+    const list = COUNTRIES.filter(c => c.rank <= maxRank).sort((a, b) => a.rank - b.rank);
+    for (const c of list) {
+      const p = project(c.ly, c.lx, _p); if (p.d < .08) continue;
+      const size = c.rank <= 2 ? 14 : c.rank <= 4 ? 13 : 12;
+      labelText(ctx, c.ko, p.x, p.y, size, 600, c.idx === ui.selectedId ? '#9fe6ff' : '#ffffff', placed, { alpha: edgeAlpha(p.d) });
+    }
+  }
+  // 도시 마커와 이름
+  {
+    for (const [c, p] of cityList) {
+      const hov = ui.hoverMarker && ui.hoverMarker.ref === c;
+      const r = (c.imp === 1 ? 3.6 : 3) * (hov ? 1.5 : 1);
+      ctx.globalAlpha = edgeAlpha(p.d);
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = c.cap ? '#ffffff' : '#ffd88a'; ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(4,9,24,.9)'; ctx.stroke();
+      if (c.cap) { ctx.beginPath(); ctx.arc(p.x, p.y, r + 2.5, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1; ctx.stroke(); }
+      ctx.globalAlpha = 1;
+      HITS.push({ type: 'city', x: p.x, y: p.y, r: 13, ref: c });
+      if (!quizOn) labelText(ctx, c.ko, p.x + 8, p.y, c.imp === 1 ? 13 : 12, c.imp === 1 ? 600 : 400, c.cap ? '#e9f1ff' : '#ffe2a8', placed, { align: 'left', alpha: edgeAlpha(p.d) });
+    }
+  }
+  // 핀 그리기
+  for (const [pin, p] of pinDraw) {
+    const hov = ui.hoverMarker && ui.hoverMarker.ref === pin;
+    const s = hov ? 1.18 : 1;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.scale(s, s); ctx.globalAlpha = edgeAlpha(p.d);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-6, -14); ctx.lineTo(6, -14); ctx.closePath(); ctx.fillStyle = pin.color; ctx.fill();
+    ctx.beginPath(); ctx.arc(0, -22, 13, 0, Math.PI * 2); ctx.fillStyle = pin.color; ctx.fill();
+    ctx.lineWidth = 2.2; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.font = `15px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(pin.emoji || '📍', 0, -21);
+    ctx.restore();
+    HITS.push({ type: 'pin', x: p.x, y: p.y - 20, r: 18, ref: pin });
+    if (z > 2.2 || hov) labelText(ctx, pin.name, p.x, p.y + 10, 12, 600, '#ffffff', placed, { alpha: edgeAlpha(p.d) });
+  }
+}
+function drawRoute(ctx, time) {
+  const pts = route.pts;
+  ctx.lineWidth = 2.6; ctx.strokeStyle = 'rgba(255,214,102,.95)'; ctx.setLineDash([]);
+  ctx.shadowColor = 'rgba(255,200,80,.6)'; ctx.shadowBlur = 6; ovLine(ctx, pts); ctx.shadowBlur = 0;
+  for (const e of [route.a, route.b]) {
+    const p = project(e.lat, e.lon, _p);
+    if (p.d > 0) { ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 7); ctx.fillStyle = '#ffd84d'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#1b1300'; ctx.stroke(); }
+  }
+  // 움직이는 비행기
+  const t = ((time || performance.now()) % 9000) / 9000, n = pts.length - 1, f = t * n, i = Math.min(n - 1, Math.floor(f));
+  const a = pts[i], b = pts[i + 1], k = f - i;
+  const v = [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
+  const p = projectVec(v, { x: 0, y: 0, d: 0 }), p2 = projectVec(b, { x: 0, y: 0, d: 0 });
+  if (p.d > 0.02) {
+    const ang = Math.atan2(p2.y - p.y, p2.x - p.x);
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(ang);
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(4,9,24,.9)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-7, -2); ctx.lineTo(-9, -8); ctx.lineTo(-5, -8); ctx.lineTo(0, -2); ctx.lineTo(-1, 0);
+    ctx.lineTo(0, 2); ctx.lineTo(-5, 8); ctx.lineTo(-9, 8); ctx.lineTo(-7, 2); ctx.closePath(); ctx.stroke(); ctx.fill();
+    ctx.restore();
+  }
+}
+
+/* ---------- 프레임 관리: 필요할 때만 다시 그리기 ---------- */
+let SUN = { lat: 0, lon: 0 };
+let rafId = 0, dirty = true, lastFrame = 0, lastIdleRender = 0;
+const perf = { samples: [], downgraded: {} };
+function requestRender() { dirty = true; if (!rafId && !document.hidden) rafId = requestAnimationFrame(frame); }
+function continuous() {
+  return anim.fly || anim.inertia || view.padB !== view.padBT || view.padR !== view.padRT || (S.autoRotate && autoRotateActive()) || sim.playing || (route.a && route.b) || tour.running || input.pointers.size > 0;
+}
+function frame(t) {
+  rafId = 0;
+  if (document.hidden) return;
+  const dt = lastFrame ? Math.min(100, t - lastFrame) : 16;
+  // 자동 회전·경로 비행기처럼 덜 중요한 움직임은 약 30fps로 제한해 배터리 절약
+  const lowPri = !anim.fly && !anim.inertia && !sim.playing && input.pointers.size === 0 && !dirty;
+  if (lowPri && continuous() && t - lastFrame < 30) { rafId = requestAnimationFrame(frame); return; }
+  lastFrame = t;
+  stepAnimations(t, dt);
+  if (!sim.live || sim.playing) { /* 시뮬레이션 시각 */ }
+  SUN = subsolar(simDate());
+  updateView();
+  const t0 = performance.now();
+  if (GL.gl && !GL.lost) drawGL(); else if (GL.failed) draw2D();
+  drawOverlay(t);
+  measurePerf(performance.now() - t0, dt);
+  dirty = false;
+  if (continuous()) rafId = requestAnimationFrame(frame);
+  else lastFrame = 0;
+  compassUpdate();
+}
+function measurePerf(work, dt) {
+  if (!continuous()) { perf.samples.length = 0; return; }
+  perf.samples.push(dt);
+  if (perf.samples.length < 90) return;
+  const avg = perf.samples.reduce((a, b) => a + b, 0) / perf.samples.length;
+  perf.samples.length = 0;
+  if (avg > 46 && S.quality !== 'saver' && !perf.downgraded[S.quality]) {
+    perf.downgraded[S.quality] = true;
+    const next = S.quality === 'high' ? 'normal' : 'saver';
+    setQuality(next, true);
+    toast(`화면이 느려서 품질을 '${next === 'normal' ? '보통' : '절약'}'으로 낮췄어요. 설정에서 바꿀 수 있어요.`);
+  }
+}
+/* =========================================================
+ * 애니메이션, 입력(터치·마우스·키보드), 화면 전환
+ * ========================================================= */
+const anim = { fly: null, inertia: null };
+let lastInteract = 0;
+function touchInteract() { lastInteract = performance.now(); }
+function autoRotateActive() {
+  return S.autoRotate && !anim.fly && !anim.inertia && !quiz.active && !tour.running && !route.picking && input.pointers.size === 0
+    && performance.now() - lastInteract > 7000 && !reducedMotion();
+}
+function flyTo(lat, lon, zoom, cb, durMs) {
+  const from = { lat: cam.lat, lon: cam.lon, zoom: cam.zoom, roll: cam.roll };
+  let dLon = wrapLon(lon - from.lon);
+  const toLat = clamp(lat, -80, 80), toZoom = clamp(zoom == null ? cam.zoom : zoom, MIN_ZOOM, MAX_ZOOM);
+  const ang = gcDistanceKm({ lat: from.lat, lon: from.lon }, { lat: toLat, lon: from.lon + dLon }) / EARTH_KM;
+  const dur = reducedMotion() ? 1 : (durMs || clamp(700 + ang * 520, 700, 2000));
+  anim.inertia = null;
+  anim.fly = { from, dLon, toLat, toZoom, start: performance.now(), dur, bump: clamp(ang / Math.PI, 0, 1) * 0.45, cb };
+  requestRender();
+}
+function stepAnimations(t, dt) {
+  const f = anim.fly;
+  if (f) {
+    const p = clamp((performance.now() - f.start) / f.dur, 0, 1), e = easeInOut(p);
+    cam.lat = lerp(f.from.lat, f.toLat, e);
+    cam.lon = wrapLon(f.from.lon + f.dLon * e);
+    const zl = Math.exp(lerp(Math.log(f.from.zoom), Math.log(f.toZoom), e));
+    cam.zoom = zl * (1 - f.bump * Math.sin(Math.PI * e) * Math.min(1, zl / 1.2));
+    cam.roll = f.from.roll * (1 - e);
+    if (p >= 1) { anim.fly = null; cam.zoom = f.toZoom; cam.roll = 0; if (f.cb) f.cb(); }
+  }
+  const v = anim.inertia;
+  if (v) {
+    rotateByScreen(v.x * dt, v.y * dt);
+    const k = Math.exp(-dt / 320); v.x *= k; v.y *= k;
+    if (Math.hypot(v.x, v.y) < 0.004) anim.inertia = null;
+  }
+  // 시트가 열리면 보이는 영역 가운데로 지구본을 부드럽게 옮김
+  const k = reducedMotion() ? 1 : Math.min(1, dt / 110);
+  view.padB += (view.padBT - view.padB) * k; view.padR += (view.padRT - view.padR) * k;
+  if (Math.abs(view.padBT - view.padB) < .5) view.padB = view.padBT;
+  if (Math.abs(view.padRT - view.padR) < .5) view.padR = view.padRT;
+  if (autoRotateActive()) cam.lon = wrapLon(cam.lon + 2.6 * dt / 1000 / Math.pow(cam.zoom, .6));
+  if (sim.playing) {
+    sim.offset += dt * (sim.speed - 1);
+    if (sim.offset >= TIME_RANGE_MS || sim.offset <= -TIME_RANGE_MS) { sim.offset = clamp(sim.offset, -TIME_RANGE_MS, TIME_RANGE_MS); sim.playing = false; refreshTimeUI(); }
+    if (t - (stepAnimations.lastUI || 0) > 250) { stepAnimations.lastUI = t; refreshTimeUI(); }
+  }
+}
+/* 화면 드래그 (CSS px) → 지구 회전. 가까이 갈수록 R이 커져 회전이 느려짐 */
+function rotateByScreen(dx, dy) {
+  const su = dx / view.R, sv = -dy / view.R, cr = Math.cos(cam.roll), sr = Math.sin(cam.roll);
+  const a = cr * su + sr * sv, b = -sr * su + cr * sv;
+  cam.lon = wrapLon(cam.lon - a / DEG / Math.max(Math.cos(cam.lat * DEG), .35));
+  cam.lat = clamp(cam.lat - b / DEG, -80, 80);   // 극점을 넘어가지 않게
+  requestRender();
+}
+function zoomBy(f) {
+  anim.fly = null;
+  cam.zoom = clamp(cam.zoom * f, MIN_ZOOM, MAX_ZOOM);
+  touchInteract(); requestRender();
+}
+
+/* ---------- 포인터 입력 ---------- */
+const input = { pointers: new Map(), drag: null, pinch: null, lastTap: null, longTimer: 0, samples: [], hoverRaf: 0 };
+function localXY(e) { const r = ovCanvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+function bindInput() {
+  const el = ovCanvas;
+  el.addEventListener('pointerdown', e => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+    const p = localXY(e);
+    input.pointers.set(e.pointerId, p);
+    anim.inertia = null; anim.fly = null; touchInteract();
+    if (input.pointers.size === 1) {
+      input.drag = { x0: p.x, y0: p.y, x: p.x, y: p.y, t0: performance.now(), moved: false };
+      input.samples = [{ x: p.x, y: p.y, t: performance.now() }];
+      clearTimeout(input.longTimer);
+      input.longTimer = setTimeout(() => {
+        if (input.drag && !input.drag.moved && input.pointers.size === 1) {
+          input.drag.long = true;
+          onLongPress(input.drag.x0, input.drag.y0);
+        }
+      }, 560);
+    } else if (input.pointers.size === 2) {
+      clearTimeout(input.longTimer);
+      if (input.drag) input.drag.moved = true;
+      const [a, b] = [...input.pointers.values()];
+      input.pinch = { d: Math.hypot(b.x - a.x, b.y - a.y), ang: Math.atan2(b.y - a.y, b.x - a.x), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, twist: 0, rollOn: false };
+    }
+    el.classList.add('dragging'); $('#tooltip').hidden = true;
+    requestRender();
+  });
+  el.addEventListener('pointermove', e => {
+    const p = localXY(e);
+    if (!input.pointers.has(e.pointerId)) { if (e.pointerType === 'mouse') queueHover(p); return; }
+    input.pointers.set(e.pointerId, p);
+    touchInteract();
+    if (input.pointers.size === 1 && input.drag) {
+      const d = input.drag, dx = p.x - d.x, dy = p.y - d.y;
+      if (!d.moved && Math.hypot(p.x - d.x0, p.y - d.y0) > 8) { d.moved = true; clearTimeout(input.longTimer); }
+      if (d.moved && !d.long) {
+        rotateByScreen(dx, dy);
+        input.samples.push({ x: p.x, y: p.y, t: performance.now() });
+        if (input.samples.length > 6) input.samples.shift();
+      }
+      d.x = p.x; d.y = p.y;
+    } else if (input.pointers.size === 2 && input.pinch) {
+      const [a, b] = [...input.pointers.values()], pc = input.pinch;
+      const d = Math.hypot(b.x - a.x, b.y - a.y), ang = Math.atan2(b.y - a.y, b.x - a.x), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      if (pc.d > 10) cam.zoom = clamp(cam.zoom * d / pc.d, MIN_ZOOM, MAX_ZOOM);
+      let da = ang - pc.ang; if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI;
+      pc.twist += da;
+      if (!pc.rollOn && Math.abs(pc.twist) > 0.26) pc.rollOn = true;   // 15° 이상 비틀면 회전(roll)
+      if (pc.rollOn) cam.roll -= da;
+      rotateByScreen(mx - pc.mx, my - pc.my);
+      pc.d = d; pc.ang = ang; pc.mx = mx; pc.my = my;
+      requestRender();
+    }
+  });
+  const end = e => {
+    if (!input.pointers.has(e.pointerId)) return;
+    const p = localXY(e);
+    input.pointers.delete(e.pointerId);
+    clearTimeout(input.longTimer);
+    if (input.pointers.size === 1) {          // 핀치 → 한 손가락으로 계속 회전
+      const q = [...input.pointers.values()][0];
+      input.drag = { x0: q.x, y0: q.y, x: q.x, y: q.y, t0: 0, moved: true }; input.pinch = null; input.samples = [];
+      return;
+    }
+    if (input.pointers.size > 0) return;
+    el.classList.remove('dragging');
+    const d = input.drag; input.drag = null; input.pinch = null;
+    if (!d) { requestRender(); return; }
+    if (e.type === 'pointercancel') { requestRender(); return; }
+    if (!d.moved && !d.long && performance.now() - d.t0 < 450) handleTap(p.x, p.y);
+    else if (d.moved && !d.long) {
+      const s = input.samples, now = performance.now(), last = s[s.length - 1];
+      // 마지막 움직임 기준 100ms 안의 표본으로 속도 계산 (손가락을 멈췄다 떼면 관성 없음)
+      const recent = last && now - last.t < 120 ? s.filter(q => q.t >= last.t - 100) : [];
+      if (recent.length >= 2 && !reducedMotion()) {
+        const a = recent[0], b = recent[recent.length - 1], dt = Math.max(8, b.t - a.t);
+        anim.inertia = { x: (b.x - a.x) / dt, y: (b.y - a.y) / dt };
+      }
+    }
+    requestRender();
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !input.pointers.size) clearHover(); });
+  el.addEventListener('wheel', e => { e.preventDefault(); zoomBy(Math.exp(-clamp(e.deltaY, -120, 120) * (e.ctrlKey ? .01 : .0022))); }, { passive: false });
+  el.addEventListener('contextmenu', e => e.preventDefault());
+  el.addEventListener('keydown', e => {
+    const step = 40;
+    const k = e.key;
+    if (k === 'ArrowLeft') rotateByScreen(step, 0); else if (k === 'ArrowRight') rotateByScreen(-step, 0);
+    else if (k === 'ArrowUp') rotateByScreen(0, step); else if (k === 'ArrowDown') rotateByScreen(0, -step);
+    else if (k === '+' || k === '=') zoomBy(1.25); else if (k === '-' || k === '_') zoomBy(0.8);
+    else if (k === 'Enter' || k === ' ') { handleTap(view.cx, view.cy); }
+    else return;
+    e.preventDefault(); anim.inertia = null; anim.fly = null; touchInteract();
+  });
+}
+function hitMarker(x, y) {
+  let best = null, bd = 1e9;
+  for (let i = HITS.length - 1; i >= 0; i--) {
+    const h = HITS[i], d = Math.hypot(h.x - x, h.y - y);
+    if (d <= h.r && (d < bd || (h.type === 'pin' && best && best.type !== 'pin'))) { if (best && best.type === 'pin' && h.type !== 'pin') continue; best = h; bd = d; }
+  }
+  return best;
+}
+function handleTap(x, y) {
+  const now = performance.now(), lt = input.lastTap;
+  const ll = unproject(x, y);
+  if (lt && now - lt.t < 320 && Math.hypot(lt.x - x, lt.y - y) < 32) {   // 더블탭: 그 위치로 이동하며 확대
+    input.lastTap = null;
+    if (ll && !route.picking && !(quiz.active && quiz.q && quiz.q.type === 'find')) flyTo(ll.lat, ll.lon, cam.zoom * 2, null, 650);
+    return;
+  }
+  input.lastTap = { t: now, x, y };
+  if (route.picking) { if (ll) routePick(ll); return; }
+  if (quiz.active && quiz.q && quiz.q.type === 'find' && !quiz.answered) { if (ll) quizFindAnswer(countryAt(ll.lat, ll.lon)); return; }
+  if (quiz.active) return;
+  const h = hitMarker(x, y);
+  if (h && h.type === 'pin') { openLayer('pinCard', { id: h.ref.id }, { replaceCard: true }); return; }
+  if (h && h.type === 'city') { openLayer('city', { key: h.ref.key }, { replaceCard: true }); return; }
+  const c = ll ? countryAt(ll.lat, ll.lon) : null;
+  if (c) { ui.selectedId = c.idx; updateStateTex(); openLayer('country', { id: c.id, lat: ll.lat, lon: ll.lon }, { replaceCard: true }); }
+  else {
+    if (ui.selectedId) { ui.selectedId = 0; updateStateTex(); }
+    const top = layers[layers.length - 1];
+    if (top && CARD_LAYERS.has(top.name)) closeLayer();
+  }
+}
+function onLongPress(x, y) {
+  if (quiz.active || route.picking) return;
+  const ll = unproject(x, y);
+  if (!ll) return;
+  try { navigator.vibrate && navigator.vibrate(15); } catch (_) {}
+  input.suppressClickUntil = performance.now() + 700;   // 손을 뗄 때 생기는 클릭이 새 화면을 누르지 않게
+  openPinEditor(null, ll);
+}
+function queueHover(p) {
+  if (input.hoverRaf) { input.hoverPos = p; return; }
+  input.hoverPos = p;
+  input.hoverRaf = requestAnimationFrame(() => { input.hoverRaf = 0; hoverAt(input.hoverPos.x, input.hoverPos.y); });
+}
+function hoverAt(x, y) {
+  if (isTouchUI()) return;
+  const tip = $('#tooltip');
+  const h = hitMarker(x, y);
+  let id = 0, text = '';
+  if (h) { text = h.type === 'pin' ? `${h.ref.emoji} ${h.ref.name}` : `${h.ref.ko} · ${h.ref.en}`; }
+  else {
+    const ll = unproject(x, y), c = ll ? countryAt(ll.lat, ll.lon) : null;
+    if (c) { id = c.idx; text = quiz.active ? '' : c.ko; }
+  }
+  const prevMarker = ui.hoverMarker;
+  ui.hoverMarker = h;
+  ovCanvas.classList.toggle('pointer', !!h);
+  ovCanvas.classList.toggle('picking', !!route.picking);
+  if (text) { tip.textContent = text; tip.hidden = false; tip.style.left = (x + ovCanvas.getBoundingClientRect().left) + 'px'; tip.style.top = (y + ovCanvas.getBoundingClientRect().top) + 'px'; }
+  else tip.hidden = true;
+  if (id !== ui.hoverId) { ui.hoverId = id; updateStateTex(); }
+  else if ((prevMarker && prevMarker.ref) !== (h && h.ref)) requestRender();
+}
+function clearHover() {
+  $('#tooltip').hidden = true;
+  if (ui.hoverId || ui.hoverMarker) { ui.hoverId = 0; ui.hoverMarker = null; updateStateTex(); }
+}
+
+/* ---------- 나침반·한국으로 ---------- */
+function compassUpdate() {
+  const n = $('#compassNeedle');
+  if (n) n.style.transform = `rotate(${(-cam.roll) / DEG}deg)`;
+}
+
+/* ---------- 토스트·대화상자 ---------- */
+function toast(msg, opts = {}) {
+  const box = $('#toasts');
+  if (!box) return;
+  const el = document.createElement('div');
+  el.className = 'toast'; el.setAttribute('role', 'status');
+  el.innerHTML = `<span class="msg"></span>`;
+  el.querySelector('.msg').textContent = msg;
+  let timer = 0;
+  const close = () => { clearTimeout(timer); el.remove(); };
+  if (opts.action) {
+    const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = opts.action;
+    b.onclick = () => { close(); opts.onAction && opts.onAction(); }; el.appendChild(b);
+  }
+  box.appendChild(el);
+  while (box.children.length > 3) box.firstChild.remove();
+  timer = setTimeout(close, opts.ms || (opts.action ? 6000 : 3200));
+  return close;
+}
+let dialogResolve = null;
+function dialog({ title, message, buttons, html }) {
+  return new Promise(res => {
+    const d = $('#dialog'), box = $('#dialogBox');
+    box.innerHTML = `<h2>${esc(title || '')}</h2>${html || `<p>${esc(message || '')}</p>`}<div class="row end"></div>`;
+    const row = box.querySelector('.row.end');
+    (buttons || [{ label: '확인', value: true, primary: true }]).forEach(b => {
+      const el = document.createElement('button'); el.type = 'button'; el.className = 'btn' + (b.primary ? ' primary' : '') + (b.danger ? ' danger' : '');
+      el.textContent = b.label; el.onclick = () => { d.hidden = true; dialogResolve = null; res(b.value); }; row.appendChild(el);
+    });
+    dialogResolve = res;
+    d.hidden = false;
+    const f = row.querySelector('.primary, .danger') || row.lastChild; f && f.focus();
+  });
+}
+const confirmDlg = (title, message, okLabel = '확인', danger = false) =>
+  dialog({ title, message, buttons: [{ label: '취소', value: false }, { label: okLabel, value: true, primary: !danger, danger }] });
+
+/* ---------- 파일 공유·다운로드 ---------- */
+async function shareOrDownload(blob, filename, title) {
+  try {
+    const file = new File([blob], filename, { type: blob.type });
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share && isTouchUI()) {
+      await navigator.share({ files: [file], title: title || filename });
+      return 'shared';
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return 'cancelled';
+  }
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return 'downloaded';
+}
+
+/* ---------- 화면 전환 (history API) ---------- */
+const layers = [];
+const CARD_LAYERS = new Set(['country', 'city', 'pinCard']);
+const hist = { ok: true, after: null, exitArmed: 0 };
+function initHistory() {
+  try { history.replaceState({ d: -1 }, ''); history.pushState({ d: 0 }, ''); }
+  catch (e) { hist.ok = false; }
+  window.addEventListener('popstate', e => {
+    const d = e.state && typeof e.state.d === 'number' ? e.state.d : 0;
+    if (d === -1) {      // 첫 화면에서 뒤로 가기: 바로 종료되지 않게
+      while (layers.length) onLayerClose(layers.pop());
+      renderTop();
+      if (performance.now() - hist.exitArmed < 2200) { history.back(); return; }
+      hist.exitArmed = performance.now();
+      toast('뒤로 가기를 한 번 더 누르면 앱이 닫혀요.', { ms: 2200 });
+      try { history.pushState({ d: 0 }, ''); } catch (_) {}
+      return;
+    }
+    let changed = false;
+    while (layers.length > d) { onLayerClose(layers.pop()); changed = true; }
+    if (changed || true) renderTop();
+    if (hist.after && layers.length <= (hist.afterDepth || 0)) { const f = hist.after; hist.after = null; setTimeout(f, 0); }
+  });
+}
+function openLayer(name, arg = {}, opts = {}) {
+  const top = layers[layers.length - 1];
+  if (top && (opts.replace || (opts.replaceCard && CARD_LAYERS.has(top.name)))) {
+    onLayerClose(top, true);
+    layers[layers.length - 1] = { name, arg };
+  } else {
+    layers.push({ name, arg });
+    if (hist.ok) try { history.pushState({ d: layers.length }, ''); } catch (e) { hist.ok = false; }
+  }
+  renderTop(true);
+}
+function closeLayer() {
+  if (!layers.length) return;
+  if (hist.ok) history.back();
+  else { onLayerClose(layers.pop()); renderTop(); }
+}
+function closeAll(then) {
+  if (!layers.length) { then && then(); return; }
+  if (hist.ok) { hist.after = then || null; hist.afterDepth = 0; history.go(-layers.length); }
+  else { while (layers.length) onLayerClose(layers.pop()); renderTop(); then && then(); }
+}
+function onLayerClose(l, replacing) {
+  if (!l) return;
+  if (l.name === 'country' && !replacing) { ui.selectedId = 0; updateStateTex(); }
+  if (l.name === 'country' && replacing) { ui.selectedId = 0; }
+  if (l.name === 'quiz' && quiz.active && !quiz.keepOnClose) quizStop();
+  clearInterval(sheetTimer); sheetTimer = 0;
+}
+let sheetTimer = 0;
+function renderTop(fresh) {
+  const sheet = $('#sheet');
+  clearInterval(sheetTimer); sheetTimer = 0;
+  const top = layers[layers.length - 1];
+  $('#fab').hidden = !!top;
+  if (!top) { sheet.hidden = true; updateSheetPad(); return; }
+  const R = RENDER[top.name];
+  if (!R) { sheet.hidden = true; return; }
+  const out = R(top.arg) || {};
+  if (out.skip) return;
+  sheet.className = 'sheet' + (out.size ? ' ' + out.size : '');
+  $('#sheetTitle').textContent = out.title || '';
+  $('#sheetHeadExtra').innerHTML = out.extra || '';
+  const body = $('#sheetBody');
+  const keepScroll = !fresh ? body.scrollTop : 0;
+  body.innerHTML = out.html || '';
+  body.scrollTop = keepScroll;
+  sheet.hidden = false;
+  updateSheetPad(); setTimeout(updateSheetPad, 260);
+  if (out.mount) out.mount(body);
+  if (out.tick) { sheetTimer = setInterval(() => { if (!document.hidden) out.tick(body); }, out.tickMs || 1000); }
+  if (fresh && !isTouchUI()) { const f = body.querySelector('[autofocus]') || sheet.querySelector('[data-act="close"]'); f && f.focus({ preventScroll: true }); }
+  else if (fresh) { const f = body.querySelector('[autofocus]'); f && f.focus({ preventScroll: true }); }
+}
+function rerender() { renderTop(false); }
+function updateSheetPad() {
+  const sh = $('#sheet');
+  let b = 0, r = 0;
+  if (!sh.hidden) {
+    const rc = sh.getBoundingClientRect();
+    if (rc.width < view.w * .75) r = Math.max(0, view.w - rc.left); else b = Math.max(0, view.h - rc.top);
+    b = Math.min(b, view.h * .62); r = Math.min(r, view.w * .6);
+  }
+  if (b !== view.padBT || r !== view.padRT) { view.padBT = b; view.padRT = r; requestRender(); }
+}
+const RENDER = {};
+const ACT = {};
+function bindDelegation() {
+  for (const t of ['click', 'mousedown', 'mouseup']) document.addEventListener(t, e => {
+    if (input.suppressClickUntil && performance.now() < input.suppressClickUntil && !e.target.closest('#ov')) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]');
+    if (!el || el.disabled) return;
+    const fn = ACT[el.dataset.act];
+    if (fn) { e.preventDefault(); fn(el, e); }
+  });
+  document.addEventListener('input', e => { const el = e.target.closest('[data-input]'); if (el && ACT[el.dataset.input]) ACT[el.dataset.input](el, e); });
+  document.addEventListener('change', e => { const el = e.target.closest('[data-change]'); if (el && ACT[el.dataset.change]) ACT[el.dataset.change](el, e); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      if (!$('#dialog').hidden) { $('#dialog').hidden = true; if (dialogResolve) { const r = dialogResolve; dialogResolve = null; r(false); } return; }
+      if (route.picking) { routePickCancel(); return; }
+      if (layers.length) closeLayer();
+    }
+  });
+}
+ACT.close = () => closeLayer();
+ACT.back = () => closeLayer();
+/* =========================================================
+ * 기능 화면들
+ * ========================================================= */
+const route = { a: null, b: null, pts: null, picking: 0, pickA: null, pickB: null };
+const quiz = { active: false };
+const tour = { running: false, i: 0, timer: 0 };
+const PIN_COLORS = ['#ff6b6b', '#ffa94d', '#ffd43b', '#69db7c', '#38d9a9', '#4dabf7', '#9775fa', '#f783ac'];
+const PIN_EMOJIS = ['📍', '⭐', '❤️', '🏠', '🍜', '☕', '🏖️', '⛰️', '🏛️', '✈️', '📷', '🎡'];
+const sw = (key, label, checked, sub, disabled) =>
+  `<label class="switch-row"><span><span>${label}</span>${sub ? `<br><span class="small-text muted">${sub}</span>` : ''}</span>
+   <span class="switch"><input type="checkbox" data-change="toggle" data-key="${key}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}><i></i></span></label>`;
+const seg = (act, items, cur, attr = '') =>
+  `<div class="seg" role="group" ${attr}>${items.map(([v, l]) => `<button type="button" data-act="${act}" data-v="${v}" aria-pressed="${String(v) === String(cur)}">${l}</button>`).join('')}</div>`;
+function zoomForCountry(c) {
+  const bb = c.mainBB || c.bb;   // 본토(가장 큰 폴리곤) 기준, 멀리 떨어진 해외 영토 제외
+  const w = (bb[2] - bb[0]) * Math.cos(clamp(c.ly, -70, 70) * DEG), h = bb[3] - bb[1];
+  return clamp(75 / Math.max(w, h, 1), 1.15, 9);
+}
+function goCountry(c, openCard = true) {
+  ui.selectedId = c.idx; updateStateTex();
+  flyTo(c.ly, c.lx, zoomForCountry(c), () => { if (openCard) openLayer('country', { id: c.id, lat: c.ly, lon: c.lx }, { replaceCard: true }); });
+}
+function goCity(c, openCard = true) {
+  flyTo(c.lat, c.lon, Math.max(cam.zoom, 4.5), () => { if (openCard) openLayer('city', { key: c.key }, { replaceCard: true }); });
+}
+
+/* ---------- 테마 ---------- */
+const THEMES = { system: ['🌓', '시스템'], light: ['☀️', '라이트'], dark: ['🌙', '다크'] };
+function themePref() { return document.documentElement.getAttribute('data-theme-pref') || 'system'; }
+function applyTheme(pref) {
+  try { localStorage.setItem('globe.theme', pref); } catch (e) {}
+  const dark = pref === 'dark' || (pref === 'system' && !(window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches));
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme-pref', pref);
+}
+function themeBtn() {
+  const p = themePref(), [ic, l] = THEMES[p];
+  return `<button type="button" class="btn theme-btn" data-act="themeCycle" aria-label="화면 모드: ${l}. 누르면 바뀝니다" title="화면 모드 (시스템 → 라이트 → 다크)">${ic} ${l}</button>`;
+}
+ACT.themeCycle = () => { const order = ['system', 'light', 'dark']; applyTheme(order[(order.indexOf(themePref()) + 1) % 3]); rerender(); };
+ACT.theme = el => { applyTheme(el.dataset.v); rerender(); };
+
+/* ---------- 메뉴 ---------- */
+function shouldRemind() {
+  const now = Date.now(), last = META.lastExport ? Date.parse(META.lastExport) : 0;
+  return PINS.length >= 5 && now - last > 30 * 86400000 && !(META.remindHideUntil && now < META.remindHideUntil);
+}
+RENDER.menu = () => {
+  const items = [['layers', '🎨', '레이어·스타일'], ['time', '🕒', '시간'], ['clocks', '🌐', '세계 시계'], ['route', '✈️', '거리·항로'],
+    ['pins', '📍', '내 핀'], ['travel', '🧳', '여행 기록'], ['quiz', '❓', '퀴즈'], ['shot', '📷', '화면 저장'], ['tour', '🧭', '가이드 투어'],
+    ['settings', '⚙️', '설정'], ['backup', '💾', '저장·불러오기'], ['info', 'ℹ️', '정보·도움말']];
+  const remind = shouldRemind() ? `<div class="reminder"><span>💾</span><span class="msg">한 달 넘게 저장하지 않았어요. 핀 ${PINS.length}개를 파일로 저장해 두세요.</span>
+    <button class="btn primary" type="button" data-act="exportAll">전체 저장</button><button class="icon-btn" type="button" data-act="remindHide" aria-label="7일간 숨기기"><span>✕</span></button></div>` : '';
+  return {
+    title: '메뉴', extra: themeBtn(),
+    html: `${remind}${!WD ? '<div class="err-box">지도 데이터를 읽지 못했어요. 지도 없이 앱을 실행 중이에요. (world-data.js 확인)</div>' : ''}
+      <div class="menu-grid">${items.map(([l, ic, t]) => `<button type="button" class="menu-item" data-act="${l === 'tour' ? 'tourStart' : 'open'}" data-l="${l}"><span class="ic">${ic}</span>${t}</button>`).join('')}</div>
+      ${GL.failed ? '<p class="note">이 기기는 WebGL을 쓸 수 없어 간단한 2D 화면으로 보여요. 구름, 부드러운 대기 빛무리 등 일부 효과가 빠져요.</p>' : ''}`,
+  };
+};
+ACT.open = el => openLayer(el.dataset.l);
+ACT.remindHide = () => { META.remindHideUntil = Date.now() + 7 * 86400000; saveMeta(); rerender(); };
+
+/* ---------- 검색 ---------- */
+function searchAll(q, opts = { countries: true, cities: true }) {
+  q = String(q || '').trim().toLowerCase();
+  if (!q) return [];
+  const qs = q.replace(/\s+/g, '');
+  const cho = isChoQuery(q);
+  const score = (names, choStr) => {
+    let best = 0;
+    if (cho) { if (choStr === qs) best = 5; else if (choStr.startsWith(qs)) best = 3; else if (choStr.includes(qs)) best = 1; return best; }
+    for (const n of names) {
+      if (!n) continue;
+      const s = String(n).toLowerCase(), s2 = s.replace(/\s+/g, '');
+      if (s === q || s2 === qs) return 6;
+      if (s.startsWith(q) || s2.startsWith(qs)) best = Math.max(best, 4);
+      else if (s.includes(q) || s2.includes(qs)) best = Math.max(best, 2);
+    }
+    return best;
+  };
+  const out = [];
+  if (opts.countries) for (const c of COUNTRIES) {
+    const sc = score([c.ko, c.en, c.enLong, ...(c.alias || []), c.iso3], c.cho);
+    if (sc) out.push({ kind: 'country', ref: c, sc: sc + 0.5 });
+  }
+  if (opts.cities) for (const c of CITIES) {
+    const sc = score([c.ko, c.en], c.cho);
+    if (sc) out.push({ kind: 'city', ref: c, sc: sc + (c.imp === 1 ? .3 : 0) });
+  }
+  out.sort((a, b) => b.sc - a.sc || a.ref.ko.localeCompare(b.ref.ko, 'ko'));
+  return out.slice(0, 40);
+}
+function resultItem(r, act = 'goResult') {
+  const c = r.ref;
+  if (r.kind === 'country') return `<button type="button" class="list-item" data-act="${act}" data-k="country" data-id="${c.id}"><span class="lead">${c.flag}</span><span class="main"><span class="t">${esc(c.ko)}</span><span class="s">${esc(c.en)} · 나라 · ${esc(c.cont)}</span></span><span class="go" aria-hidden="true">➜</span></button>`;
+  const cn = c.country ? c.country.ko : c.cn;
+  return `<button type="button" class="list-item" data-act="${act}" data-k="city" data-id="${esc(c.key)}"><span class="lead">${c.cap ? '🏛️' : '🏙️'}</span><span class="main"><span class="t">${esc(c.ko)}</span><span class="s">${esc(c.en)} · ${esc(cn)}${c.cap ? ' 수도' : ''}</span></span><span class="go" aria-hidden="true">➜</span></button>`;
+}
+RENDER.search = arg => ({
+  title: '검색', size: 'small',
+  html: `<input type="search" id="searchQ" data-input="searchInput" placeholder="나라·도시 (한글·영문·초성 예: ㅍㄹㅅ)" value="${esc(arg.q || '')}" autofocus enterkeyhint="search" autocomplete="off">
+    <div class="list" id="searchResults"></div>`,
+  mount: body => renderSearchResults(body, arg.q || ''),
+});
+function renderSearchResults(body, q) {
+  const box = body.querySelector('#searchResults');
+  if (!q.trim()) { box.innerHTML = `<p class="muted small-text">나라 이름, 도시 이름을 한글·영문으로 찾을 수 있어요. 한글 초성(예: ㅍㄹㅅ → 프랑스)도 돼요.<br>지도에 없는 작은 섬나라는 수도 이름으로 찾아보세요.</p>`; return; }
+  const res = searchAll(q);
+  box.innerHTML = res.length ? res.map(r => resultItem(r)).join('') : `<div class="empty">"${esc(q)}"에 맞는 곳이 없어요.</div>`;
+}
+ACT.searchInput = el => { const top = layers[layers.length - 1]; if (top) top.arg.q = el.value; renderSearchResults($('#sheetBody'), el.value); };
+ACT.goResult = el => {
+  const k = el.dataset.k, id = el.dataset.id;
+  closeAll(() => {
+    if (k === 'country' && CBYID[id]) goCountry(CBYID[id]);
+    else if (k === 'city' && CITYBYKEY[id]) goCity(CITYBYKEY[id]);
+  });
+};
+
+/* ---------- 정보 카드: 나라 ---------- */
+function localTimeLine(tz) {
+  if (!tz) return '정보 없음';
+  const now = new Date(), off = tzOffsetMin(tz, now), ko = tzOffsetMin('Asia/Seoul', now);
+  return `<time>${esc(fmtTime(tz, now, true))}</time> <span class="muted small-text">(${off == null ? '' : fmtOffsetDiff(off - ko)})</span>`;
+}
+RENDER.country = arg => {
+  const c = CBYID[arg.id];
+  if (!c) return { title: '알 수 없는 곳', html: '' };
+  const cap = c.cap;
+  const lat = arg.lat == null ? c.ly : arg.lat, lon = arg.lon == null ? c.lx : arg.lon;
+  return {
+    title: c.ko, size: 'compact',
+    html: `<div class="card-head"><span class="flag" aria-hidden="true">${c.flag}</span><div class="names"><div class="ko">${esc(c.ko)}</div><div class="muted">${esc(c.enLong || c.en)}</div></div></div>
+      <dl class="kv">
+        <dt>대륙</dt><dd>${esc(c.cont)}</dd>
+        <dt>${cap && cap.seat ? '중심 도시' : '수도'}</dt><dd>${cap ? `${esc(cap.ko)} <span class="muted">(${esc(cap.en)})</span>` : '정보 없음'}</dd>
+        <dt>좌표</dt><dd class="num">${fmtLatLon(lat, lon)}</dd>
+        <dt>현지 시각</dt><dd id="cardTime">${cap ? localTimeLine(cap.tz) : '정보 없음'}</dd>
+      </dl>
+      ${cap ? '<p class="muted small-text" style="margin:-6px 0 8px">현지 시각은 수도(중심 도시) 시간대 기준이에요.</p>' : ''}
+      <label class="switch-row"><span>가 본 나라로 표시</span><span class="switch"><input type="checkbox" data-change="toggleVisited" data-id="${c.id}" ${VISITED.has(c.id) ? 'checked' : ''}><i></i></span></label>
+      <div class="grid2" style="margin-top:8px">
+        <button type="button" class="btn" data-act="pinHere" data-lat="${lat}" data-lon="${lon}" data-name="${esc(c.ko)}">📍 핀 꽂기</button>
+        <button type="button" class="btn" data-act="goCountry" data-id="${c.id}">🎯 이 나라로 이동</button>
+      </div>`,
+    tick: body => { const el = body.querySelector('#cardTime'); if (el && cap) el.innerHTML = localTimeLine(cap.tz); },
+  };
+};
+ACT.toggleVisited = el => {
+  const id = el.dataset.id;
+  if (el.checked) VISITED.add(id); else VISITED.delete(id);
+  saveVisited(); updateStateTex();
+  toast(el.checked ? `${CBYID[id].ko}을(를) 가 본 나라로 표시했어요. (방문한 나라 ${VISITED.size}개)` : '가 본 나라 표시를 해제했어요.');
+};
+ACT.goCountry = el => { const c = CBYID[el.dataset.id]; if (c) goCountry(c, false); };
+ACT.pinHere = el => openPinEditor(null, { lat: +el.dataset.lat, lon: +el.dataset.lon }, el.dataset.name || '');
+
+/* ---------- 정보 카드: 도시 ---------- */
+RENDER.city = arg => {
+  const c = CITYBYKEY[arg.key];
+  if (!c) return { title: '', html: '' };
+  const inClock = CLOCKS.includes(c.key);
+  return {
+    title: c.ko, size: 'compact',
+    html: `<div class="card-head"><span class="flag">${c.country ? c.country.flag : '🏙️'}</span><div class="names"><div class="ko">${esc(c.ko)}${c.cap ? ' <span class="small-text muted">수도</span>' : ''}</div><div class="muted">${esc(c.en)} · ${esc(c.country ? c.country.ko : c.cn)}</div></div></div>
+      <dl class="kv"><dt>좌표</dt><dd class="num">${fmtLatLon(c.lat, c.lon)}</dd><dt>현지 시각</dt><dd id="cardTime">${localTimeLine(c.tz)}</dd><dt>시간대</dt><dd class="small-text">${esc(c.tz)}</dd></dl>
+      <div class="grid3">
+        <button type="button" class="btn" data-act="clockAdd" data-key="${esc(c.key)}" ${inClock ? 'disabled' : ''}>🌐 ${inClock ? '시계에 있음' : '시계 추가'}</button>
+        <button type="button" class="btn" data-act="pinHere" data-lat="${c.lat}" data-lon="${c.lon}" data-name="${esc(c.ko)}">📍 핀</button>
+        <button type="button" class="btn" data-act="routeFrom" data-key="${esc(c.key)}">✈️ 거리</button>
+      </div>`,
+    tick: body => { const el = body.querySelector('#cardTime'); if (el) el.innerHTML = localTimeLine(c.tz); },
+  };
+};
+ACT.routeFrom = el => { route.a = cityEndpoint(CITYBYKEY[el.dataset.key]); route.b = null; route.pts = null; openLayer('route', {}, { replace: true }); };
+
+/* ---------- 레이어·스타일 ---------- */
+const STYLES = [['satellite', '가상 위성'], ['political', '정치 지도'], ['simple', '심플'], ['night', '야간']];
+const thumbs = {};
+RENDER.layers = () => ({
+  title: '레이어·스타일',
+  html: `<h3 style="margin-top:4px">지도 스타일</h3>
+    <div class="style-grid">${STYLES.map(([k, l]) => `<button type="button" class="style-card" data-act="style" data-v="${k}" aria-pressed="${S.style === k}"><div class="mini-globe" data-thumb="${k}" style="${thumbs[k] ? `background-image:url(${thumbs[k]})` : 'background-color:#1e4a8a'}"></div>${l}</button>`).join('')}</div>
+    ${S.style === 'satellite' ? '<p class="note">가상 위성은 실제 위성 사진이나 지형이 아니라, 위도와 노이즈로 숲·사막·설원 느낌을 꾸며 낸 색이에요.</p>' : ''}
+    <h3>레이어</h3>
+    ${sw('borders', '국경선', S.borders)}
+    <div class="switch-row" style="cursor:default"><span>위도·경도 격자</span>${seg('grid', [['off', '끄기'], ['10', '10°'], ['30', '30°']], S.grid, 'style="width:190px"')}</div>
+    ${sw('special', '적도·회귀선·극권', S.special)}
+    ${sw('cities', '도시 마커와 이름', S.cities)}
+    ${sw('names', '대륙·대양 이름', S.names)}
+    ${sw('clouds', '구름', S.clouds && !GL.failed, GL.failed ? '간단한 화면(2D)에서는 구름을 볼 수 없어요' : '절차적으로 만든 구름이 천천히 움직여요. 끄면 더 가벼워져요', GL.failed)}
+    <p class="muted small-text">이름은 확대할수록 덜 중요한 곳까지 나타나고, 서로 겹치면 자동으로 숨겨져요.</p>`,
+  mount: () => setTimeout(makeThumbs, 30),
+});
+function makeThumbs() {
+  if (!WD) return;
+  for (const [k] of STYLES) {
+    if (!thumbs[k]) {
+      try { const cv = renderStyle(k, 256, 128); if (k === 'night') { const x = cv.getContext('2d'); x.globalCompositeOperation = 'lighter'; x.drawImage(TEX.lights, 0, 0, 256, 128); } thumbs[k] = cv.toDataURL('image/jpeg', .8); } catch (e) { continue; }
+    }
+    const el = document.querySelector(`[data-thumb="${k}"]`);
+    if (el) el.style.backgroundImage = `url(${thumbs[k]})`;
+  }
+}
+ACT.style = el => {
+  if (S.style === el.dataset.v) return;
+  S.style = el.dataset.v; saveSettings(); rerender();
+  rebuildTextures();
+};
+ACT.grid = el => { S.grid = el.dataset.v; saveSettings(); rerender(); requestRender(); };
+ACT.toggle = el => {
+  const k = el.dataset.key;
+  if (k === 'autoRotate') touchInteract();
+  S[k] = el.checked; saveSettings();
+  if (k === 'wakeLock') applyWakeLock();
+  if (k === 'special' || k === 'grid') { /* 오버레이만 */ }
+  const top = layers[layers.length - 1];
+  if (top && top.name === 'layers' && k === 'borders') { /* no rerender needed */ }
+  requestRender();
+};
+function rebuildTextures(full) {
+  $('#loading').hidden = false;
+  setTimeout(() => {
+    try { buildTextures(full); if (GL.gl) uploadAllTextures(); }
+    catch (e) { toast('지도 그림을 만들지 못했어요: ' + e.message); }
+    $('#loading').hidden = true; requestRender();
+  }, 40);
+}
+
+/* ---------- 시간 ---------- */
+RENDER.time = () => {
+  const offMin = Math.round(sim.offset / 60000);
+  const d = simDate();
+  const lim = Math.round(TIME_RANGE_MS / 60000);
+  return {
+    title: '시간·낮과 밤',
+    html: `<p class="muted small-text" style="margin-top:0">기기의 시각으로 태양이 바로 위에 오는 지점을 계산해 낮과 밤을 그려요. 계절에 따른 태양 높이도 반영돼요.</p>
+      <div class="stat-big" id="tmNow" style="font-size:1.35rem">${esc(fmtLocal(d, true))}</div>
+      <div class="muted small-text" id="tmState">${sim.live ? '지금(실시간)' : '시간 이동 중 · 한국 시각 기준'}</div>
+      <div class="small-text" id="tmSun" style="margin:6px 0 4px"></div>
+      <input type="range" id="tmSlider" min="${-lim}" max="${lim}" step="15" value="${sim.live ? 0 : offMin}" data-input="timeSlider" aria-label="날짜와 시각 이동 (앞뒤로 1년)">
+      <div class="row small-text muted" style="justify-content:space-between;margin-top:-6px"><span>−1년</span><span>지금</span><span>+1년</span></div>
+      <div class="grid2" style="margin-top:8px">
+        <label class="field" style="margin:0"><span>날짜</span><input type="date" id="tmDate" data-change="timeDate" value="${ymd(d)}" min="${ymd(new Date(Date.now() - TIME_RANGE_MS + 86400000))}" max="${ymd(new Date(Date.now() + TIME_RANGE_MS - 86400000))}"></label>
+        <label class="field" style="margin:0"><span>시각</span><input type="time" id="tmTime" data-change="timeDate" value="${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}"></label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button type="button" class="btn primary" data-act="timeLive">🕒 지금(실시간)</button>
+        <button type="button" class="btn" id="tmPlay" data-act="timePlay">${sim.playing ? '⏸ 멈춤' : '▶ 재생'}</button>
+      </div>
+      <h3>재생 속도</h3>
+      ${seg('timeSpeed', [[3600, '1초에 1시간'], [21600, '1초에 6시간'], [86400, '1초에 하루']], sim.speed)}
+      <p class="muted small-text">재생하면 하루가 빠르게 흘러가며 낮과 밤의 경계가 움직여요. 앞뒤 1년 안에서만 이동할 수 있어요.</p>`,
+    mount: () => refreshTimeUI(),
+  };
+};
+function refreshTimeUI() {
+  const chip = $('#timeChip');
+  const d = simDate();
+  if (sim.live && !sim.playing) chip.hidden = true;
+  else {
+    chip.hidden = false;
+    chip.innerHTML = `<span>⏱</span><span class="tnum" data-act="open" data-l="time" style="cursor:pointer">${esc(fmtLocal(d, true))}</span><button type="button" data-act="timeLive">지금</button>`;
+  }
+  const top = layers[layers.length - 1];
+  if (!top || top.name !== 'time') return;
+  const s = subsolar(d);
+  const set = (id, v) => { const el = $('#' + id); if (el) el.textContent = v; };
+  set('tmNow', fmtLocal(d, true));
+  set('tmState', sim.live ? '지금(실시간)' : (sim.playing ? '재생 중' : '시간 이동 중') + ' · 한국 시각 기준');
+  set('tmSun', `☀️ 태양이 바로 위에 있는 곳: ${fmtLatLon(s.lat, s.lon)}`);
+  const sl = $('#tmSlider'); if (sl && document.activeElement !== sl) sl.value = sim.live ? 0 : Math.round(sim.offset / 60000);
+  const di = $('#tmDate'), ti = $('#tmTime');
+  if (di && document.activeElement !== di) di.value = ymd(d);
+  if (ti && document.activeElement !== ti) ti.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const pb = $('#tmPlay'); if (pb) pb.textContent = sim.playing ? '⏸ 멈춤' : '▶ 재생';
+}
+ACT.timeSlider = el => { sim.offset = clamp(+el.value * 60000, -TIME_RANGE_MS, TIME_RANGE_MS); sim.live = +el.value === 0 && !sim.playing; refreshTimeUI(); requestRender(); };
+ACT.timeDate = () => {
+  const dv = $('#tmDate').value, tv = $('#tmTime').value || '12:00';
+  if (!dv) return;
+  const [y, m, dd] = dv.split('-').map(Number), [hh, mm] = tv.split(':').map(Number);
+  const t = new Date(y, m - 1, dd, hh, mm).getTime();
+  if (!isFinite(t)) return;
+  if (Math.abs(t - Date.now()) > TIME_RANGE_MS) toast('앞뒤 1년 안의 날짜만 볼 수 있어서 가장 가까운 날짜로 맞췄어요.');
+  setSimTime(t); refreshTimeUI(); requestRender();
+};
+ACT.timeLive = () => { sim.live = true; sim.offset = 0; sim.playing = false; refreshTimeUI(); requestRender(); };
+ACT.timePlay = () => { sim.playing = !sim.playing; if (sim.playing) sim.live = false; refreshTimeUI(); requestRender(); };
+ACT.timeSpeed = el => { sim.speed = +el.dataset.v; rerender(); };
+
+/* ---------- 세계 시계 ---------- */
+function isDST(tz, d) {
+  const y = d.getFullYear(), a = tzOffsetMin(tz, new Date(y, 0, 1)), b = tzOffsetMin(tz, new Date(y, 6, 1)), n = tzOffsetMin(tz, d);
+  return a !== b && n === Math.max(a, b);
+}
+RENDER.clocks = arg => {
+  const list = CLOCKS.map(k => CITYBYKEY[k]).filter(Boolean);
+  return {
+    title: '세계 시계',
+    html: `<div class="suggest"><input type="search" id="clockQ" placeholder="도시 추가 (예: 런던, ㄹㄷ)" data-input="clockSearch" autocomplete="off" value="${esc(arg.q || '')}"><div class="list" id="clockSug" hidden></div></div>
+      <div class="list" id="clockList">${list.length ? list.map(c => `<div class="list-row">
+        <button type="button" class="list-item" data-act="clockGo" data-key="${esc(c.key)}"><span class="lead">${c.country ? c.country.flag : '🏙️'}</span>
+          <span class="main"><span class="t">${esc(c.ko)} <span class="s" style="display:inline">${esc(c.country ? c.country.ko : c.cn)}</span></span><span class="s" data-clockdiff="${esc(c.key)}"></span></span>
+          <span class="clock-time" data-clock="${esc(c.key)}"></span></button>
+        <button type="button" class="icon-btn danger" data-act="clockDel" data-key="${esc(c.key)}" aria-label="${esc(c.ko)} 시계 삭제"><span>✕</span></button></div>`).join('') : '<div class="empty">추가한 도시가 없어요.</div>'}</div>
+      <p class="muted small-text">각 도시의 시간대(IANA)를 기준으로 서머타임이 자동 반영돼요. 도시를 누르면 그곳으로 이동해요.</p>`,
+    mount: body => updateClocks(body), tick: body => updateClocks(body),
+  };
+};
+function updateClocks(body) {
+  const now = new Date(), ko = tzOffsetMin('Asia/Seoul', now);
+  $$('[data-clock]', body).forEach(el => { const c = CITYBYKEY[el.dataset.clock]; el.textContent = fmtTime(c.tz, now); });
+  $$('[data-clockdiff]', body).forEach(el => {
+    const c = CITYBYKEY[el.dataset.clockdiff], off = tzOffsetMin(c.tz, now);
+    const dayDiff = (() => { const f = dtf(c.tz, { year: 'numeric', month: 'numeric', day: 'numeric' }), g = dtf('Asia/Seoul', { year: 'numeric', month: 'numeric', day: 'numeric' }); const a = f.format(now), b = g.format(now); return a === b ? '' : (off < ko ? ' · 어제' : ' · 내일'); })();
+    el.textContent = fmtOffsetDiff(off - ko) + dayDiff + (isDST(c.tz, now) ? ' · 서머타임' : '');
+  });
+}
+ACT.clockSearch = el => {
+  const top = layers[layers.length - 1]; if (top) top.arg.q = el.value;
+  const box = $('#clockSug'), res = searchAll(el.value, { cities: true }).slice(0, 8);
+  box.hidden = !el.value.trim();
+  box.innerHTML = res.length ? res.map(r => resultItem(r, 'clockPick')).join('') : '<div class="empty">찾는 도시가 없어요.</div>';
+};
+ACT.clockPick = el => { addClock(el.dataset.id); const top = layers[layers.length - 1]; if (top) top.arg.q = ''; rerender(); };
+ACT.clockAdd = el => { addClock(el.dataset.key); rerender(); };
+function addClock(key) {
+  if (!CITYBYKEY[key]) return;
+  if (CLOCKS.includes(key)) { toast('이미 세계 시계에 있어요.'); return; }
+  if (CLOCKS.length >= 16) { toast('세계 시계는 16곳까지 추가할 수 있어요.'); return; }
+  CLOCKS.push(key); saveClocks(); toast(`${CITYBYKEY[key].ko}을(를) 세계 시계에 추가했어요.`);
+}
+ACT.clockDel = el => { CLOCKS = CLOCKS.filter(k => k !== el.dataset.key); saveClocks(); rerender(); };
+ACT.clockGo = el => { const c = CITYBYKEY[el.dataset.key]; closeAll(() => goCity(c)); };
+
+/* ---------- 거리·항로 ---------- */
+function cityEndpoint(c) { return c ? { lat: c.lat, lon: c.lon, name: c.ko, key: c.key } : null; }
+function setRoute(a, b) {
+  route.a = a; route.b = b;
+  route.pts = a && b ? gcPoints(a, b, 160) : null;
+  requestRender();
+}
+function routeInfo() {
+  const km = gcDistanceKm(route.a, route.b), h = km / FLIGHT_KMH, hh = Math.floor(h), mm = Math.round((h - hh) * 60 / 5) * 5;
+  return { km, text: fmtDist(km), time: `약 ${hh ? hh + '시간 ' : ''}${mm % 60 ? (mm % 60) + '분' : (hh ? '' : '0분')}`.trim() };
+}
+function fitRoute() {
+  if (!route.a || !route.b) return;
+  const mid = vecToLatLon(route.pts[Math.floor(route.pts.length / 2)]);
+  const ang = gcDistanceKm(route.a, route.b) / EARTH_KM;
+  flyTo(mid.lat, mid.lon, clamp(0.85 / Math.sin(Math.min(Math.PI / 2, ang / 2 + .12)), .9, 7));
+}
+RENDER.route = arg => {
+  const info = route.a && route.b ? routeInfo() : null;
+  const ep = (which, e) => `<div class="field"><span>${which === 'a' ? '출발' : '도착'}</span>
+    <div class="suggest"><input type="search" id="rt_${which}" data-input="routeSearch" data-w="${which}" placeholder="도시 이름 검색" autocomplete="off" value="${esc(e ? e.name : '')}"><div class="list" id="rtSug_${which}" hidden></div></div></div>`;
+  return {
+    title: '거리·항로',
+    html: `${ep('a', route.a)}${ep('b', route.b)}
+      <div class="row">
+        <button type="button" class="btn" data-act="routePickStart">👆 지도에서 두 지점 누르기</button>
+        <button type="button" class="btn" data-act="routeSwap" ${route.a || route.b ? '' : 'disabled'}>⇅ 바꾸기</button>
+        <button type="button" class="btn danger" data-act="routeClear" ${route.a || route.b ? '' : 'disabled'}>지우기</button>
+      </div>
+      <h3>단위</h3>${seg('units', [['km', 'km'], ['mi', '마일']], S.units)}
+      ${info ? `<div class="note" style="margin-top:14px"><div style="font-weight:600">${esc(route.a.name)} → ${esc(route.b.name)}</div>
+        <div class="stat-big">${info.text}</div>
+        <div>비행 시간 ${info.time} <span class="muted small-text">(시속 900km 가정, 대략적인 값)</span></div>
+        <div class="muted small-text">지구 표면을 따라가는 가장 짧은 경로(대권)예요.</div></div>
+        <button type="button" class="btn block" data-act="routeShow">🗺️ 지구본에서 경로 보기</button>` : '<p class="muted small-text">두 도시를 고르거나, 지도에서 두 지점을 누르면 거리와 경로를 보여 줘요.</p>'}`,
+  };
+};
+ACT.routeSearch = el => {
+  const w = el.dataset.w, box = $('#rtSug_' + w), res = searchAll(el.value, { cities: true }).slice(0, 8);
+  box.hidden = !el.value.trim();
+  box.innerHTML = res.length ? res.map(r => resultItem(r, 'routePick_' + w)).join('') : '<div class="empty">찾는 도시가 없어요.</div>';
+};
+ACT.routePick_a = el => { setRoute(cityEndpoint(CITYBYKEY[el.dataset.id]), route.b); rerender(); };
+ACT.routePick_b = el => { setRoute(route.a, cityEndpoint(CITYBYKEY[el.dataset.id])); rerender(); };
+ACT.routeSwap = () => { setRoute(route.b, route.a); rerender(); };
+ACT.routeClear = () => { setRoute(null, null); rerender(); };
+ACT.routeShow = () => closeAll(fitRoute);
+ACT.units = el => { S.units = el.dataset.v; saveSettings(); rerender(); };
+ACT.routePickStart = () => closeAll(() => {
+  route.picking = 1; route.pickA = route.pickB = null;
+  showBanner('👆 출발 지점을 눌러 주세요', [['routePickCancel', '취소']]);
+  ovCanvas.classList.add('picking');
+});
+function pointName(ll) { const c = countryAt(ll.lat, ll.lon); return (c ? c.ko + ' ' : '') + `(${ll.lat.toFixed(1)}°, ${ll.lon.toFixed(1)}°)`; }
+function routePick(ll) {
+  if (route.picking === 1) { route.pickA = ll; route.picking = 2; showBanner('👆 도착 지점을 눌러 주세요', [['routePickCancel', '취소']]); requestRender(); return; }
+  route.pickB = ll; route.picking = 0; hideBanner(); ovCanvas.classList.remove('picking');
+  setRoute({ lat: route.pickA.lat, lon: route.pickA.lon, name: pointName(route.pickA) }, { lat: ll.lat, lon: ll.lon, name: pointName(ll) });
+  route.pickA = route.pickB = null;
+  fitRoute(); openLayer('route');
+}
+function routePickCancel() { route.picking = 0; route.pickA = route.pickB = null; hideBanner(); ovCanvas.classList.remove('picking'); requestRender(); }
+ACT.routePickCancel = routePickCancel;
+function showBanner(text, buttons = []) {
+  const b = $('#banner');
+  b.innerHTML = `<div class="chip-glass"><span>${esc(text)}</span>${buttons.map(([act, l]) => `<button type="button" data-act="${act}">${esc(l)}</button>`).join('')}</div>`;
+  b.hidden = false;
+}
+function hideBanner() { $('#banner').hidden = true; }
+
+/* ---------- 내 핀 ---------- */
+function openPinEditor(pin, ll, name) {
+  const draft = pin ? Object.assign({}, pin) : { id: null, name: name || '', memo: '', color: PIN_COLORS[0], emoji: '📍', cat: 'visited', lat: ll.lat, lon: ll.lon };
+  openLayer('pinEdit', { draft });
+}
+RENDER.pinEdit = arg => {
+  const d = arg.draft, c = countryAt(d.lat, d.lon);
+  return {
+    title: d.id ? '핀 수정' : '새 핀',
+    html: `<p class="muted small-text" style="margin-top:0">📌 ${fmtLatLon(d.lat, d.lon)}${c ? ' · ' + esc(c.ko) : ''}</p>
+      <label class="field"><span>이름 (필수)</span><input type="text" id="pinName" maxlength="80" value="${esc(d.name)}" data-input="pinField" data-f="name" placeholder="예: 파리 여행" ${d.id ? '' : 'autofocus'}></label>
+      <div class="err-box" id="pinErr" ${d.name.trim() || !arg.touched ? 'hidden' : ''} style="margin-top:-4px">이름을 입력해야 저장할 수 있어요.</div>
+      <p class="muted small-text" id="pinHint" ${d.name.trim() || arg.touched ? 'hidden' : ''} style="margin:-6px 0 0">이름을 입력하면 저장할 수 있어요.</p>
+      <label class="field"><span>메모</span><textarea id="pinMemo" maxlength="2000" data-input="pinField" data-f="memo" placeholder="기억하고 싶은 것">${esc(d.memo)}</textarea></label>
+      <div class="field"><span>분류</span>${seg('pinCat', [['visited', '✅ 가 본 곳'], ['wish', '💭 가고 싶은 곳']], d.cat)}</div>
+      <div class="field"><span>색상</span><div class="swatches">${PIN_COLORS.map(col => `<button type="button" class="swatch" style="background:${col}" data-act="pinColor" data-v="${col}" aria-pressed="${d.color === col}" aria-label="색상 ${col}"></button>`).join('')}</div></div>
+      <div class="field"><span>이모지</span><div class="emoji-pick">${PIN_EMOJIS.map(e => `<button type="button" data-act="pinEmoji" data-v="${e}" aria-pressed="${d.emoji === e}">${e}</button>`).join('')}</div>
+        <input type="text" maxlength="8" value="${PIN_EMOJIS.includes(d.emoji) ? '' : esc(d.emoji)}" data-input="pinField" data-f="emoji" placeholder="다른 이모지 직접 입력" style="margin-top:6px"></div>
+      <div class="grid2" style="margin-top:12px"><button type="button" class="btn" data-act="close">취소</button><button type="button" class="btn primary" id="pinSave" data-act="pinSave" ${d.name.trim() ? '' : 'disabled'}>저장</button></div>`,
+  };
+};
+ACT.pinField = el => {
+  const top = layers[layers.length - 1]; if (!top || !top.arg.draft) return;
+  const f = el.dataset.f;
+  top.arg.draft[f] = f === 'emoji' ? (el.value.trim() || '📍') : el.value;
+  if (f === 'name') { top.arg.touched = true; const ok = !!el.value.trim(); $('#pinSave').disabled = !ok; $('#pinErr').hidden = ok; $('#pinHint').hidden = true; }
+  if (f === 'emoji') $$('.emoji-pick button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === top.arg.draft.emoji)));
+};
+ACT.pinCat = el => { layers[layers.length - 1].arg.draft.cat = el.dataset.v; rerender(); };
+ACT.pinColor = el => { layers[layers.length - 1].arg.draft.color = el.dataset.v; rerender(); };
+ACT.pinEmoji = el => { layers[layers.length - 1].arg.draft.emoji = el.dataset.v; rerender(); };
+ACT.pinSave = () => {
+  const d = layers[layers.length - 1].arg.draft;
+  if (!d.name.trim()) { $('#pinErr').hidden = false; return; }
+  const now = nowISO();
+  if (d.id) {
+    const i = PINS.findIndex(p => p.id === d.id);
+    if (i >= 0) PINS[i] = Object.assign({}, PINS[i], { name: d.name.trim(), memo: d.memo, color: d.color, emoji: d.emoji, cat: d.cat, updatedAt: now });
+  } else PINS.push({ id: uid(), name: d.name.trim(), memo: d.memo, color: d.color, emoji: d.emoji, cat: d.cat, lat: d.lat, lon: d.lon, createdAt: now, updatedAt: now });
+  savePins(); requestRender();
+  toast(d.id ? '핀을 수정했어요.' : `핀 "${d.name.trim()}"을(를) 꽂았어요.`);
+  closeLayer();
+};
+async function deletePins(ids, skipConfirm) {
+  const set = new Set(ids), del = PINS.filter(p => set.has(p.id));
+  if (!del.length) return false;
+  if (!skipConfirm) {
+    const ok = await confirmDlg('핀 삭제', del.length === 1 ? `"${del[0].name}" 핀을 삭제할까요?` : `선택한 핀 ${del.length}개를 삭제할까요?`, '삭제', true);
+    if (!ok) return false;
+  }
+  if (del.length > 1) makeAutoBackup(`핀 ${del.length}개 삭제 전`);
+  const before = PINS.slice();
+  PINS = PINS.filter(p => !set.has(p.id)); savePins(); requestRender();
+  toast(del.length === 1 ? `"${del[0].name}" 핀을 삭제했어요.` : `핀 ${del.length}개를 삭제했어요.`, {
+    action: '되돌리기', ms: 6000,
+    onAction: () => { PINS = before; savePins(); requestRender(); rerender(); toast('삭제를 되돌렸어요.'); },
+  });
+  return true;
+}
+RENDER.pinCard = arg => {
+  const p = PINS.find(x => x.id === arg.id);
+  if (!p) return { title: '핀', html: '<div class="empty">삭제된 핀이에요.</div>', size: 'compact' };
+  const c = countryAt(p.lat, p.lon);
+  return {
+    title: p.name, size: 'small',
+    html: `<div class="card-head"><span class="pin-dot" style="background:${esc(p.color)};width:44px;height:44px;font-size:22px">${esc(p.emoji)}</span>
+        <div class="names"><div class="ko">${esc(p.name)}</div><div class="muted small-text">${p.cat === 'wish' ? '💭 가고 싶은 곳' : '✅ 가 본 곳'}${c ? ' · ' + esc(c.ko) : ''}</div></div></div>
+      ${p.memo ? `<p style="white-space:pre-wrap;margin:8px 0">${esc(p.memo)}</p>` : '<p class="muted small-text">메모가 없어요.</p>'}
+      <p class="muted small-text num">${fmtLatLon(p.lat, p.lon)} · 수정 ${esc(new Date(p.updatedAt).toLocaleDateString('ko-KR'))}</p>
+      <div class="grid2">
+        <button type="button" class="btn" data-act="pinGo" data-id="${p.id}">🎯 이동</button>
+        <button type="button" class="btn" data-act="pinEditOpen" data-id="${p.id}">✏️ 수정</button>
+        <button type="button" class="btn" data-act="pinExportOne" data-id="${p.id}">📤 파일로 저장</button>
+        <button type="button" class="btn danger" data-act="pinDelete" data-id="${p.id}">🗑 삭제</button>
+      </div>`,
+  };
+};
+ACT.pinGo = el => { const p = PINS.find(x => x.id === el.dataset.id); if (p) flyTo(p.lat, p.lon, Math.max(cam.zoom, 3.5)); };
+ACT.pinEditOpen = el => { const p = PINS.find(x => x.id === el.dataset.id); if (p) openPinEditor(p); };
+ACT.pinDelete = async el => { if (await deletePins([el.dataset.id])) { const top = layers[layers.length - 1]; if (top && top.name === 'pinCard') closeLayer(); else rerender(); } };
+ACT.pinExportOne = el => exportPins([el.dataset.id]);
+
+RENDER.pins = arg => {
+  arg.f = arg.f || 'all'; arg.sel = arg.sel || [];
+  const q = (arg.q || '').trim().toLowerCase(), cho = isChoQuery(q);
+  let list = PINS.slice().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  if (arg.f !== 'all') list = list.filter(p => p.cat === arg.f);
+  if (q) list = list.filter(p => cho ? choseong(p.name).includes(q.replace(/\s/g, '')) : (p.name + ' ' + p.memo).toLowerCase().includes(q));
+  const sel = new Set(arg.sel);
+  return {
+    title: `내 핀 (${PINS.length})`,
+    html: `<input type="search" placeholder="핀 이름·메모 검색" data-input="pinsQ" value="${esc(arg.q || '')}" autocomplete="off">
+      <div class="chips">${[['all', '전체'], ['visited', '✅ 가 본 곳'], ['wish', '💭 가고 싶은 곳']].map(([v, l]) => `<button type="button" class="chip" data-act="pinsF" data-v="${v}" aria-pressed="${arg.f === v}">${l}</button>`).join('')}
+        <span class="spacer"></span><button type="button" class="chip" data-act="pinsSelMode" aria-pressed="${!!arg.selecting}">☑️ 선택</button></div>
+      ${arg.selecting ? `<div class="row" style="margin-bottom:6px"><button type="button" class="btn" data-act="pinsSelAll">모두 선택</button>
+        <button type="button" class="btn" data-act="pinsExportSel" ${sel.size ? '' : 'disabled'}>📤 ${sel.size}개 저장</button>
+        <button type="button" class="btn danger" data-act="pinsDelSel" ${sel.size ? '' : 'disabled'}>🗑 ${sel.size}개 삭제</button></div>` : ''}
+      <div class="list">${list.length ? list.map(p => `<div class="list-row">
+        ${arg.selecting ? `<input type="checkbox" class="check" data-change="pinSel" data-id="${p.id}" ${sel.has(p.id) ? 'checked' : ''} aria-label="${esc(p.name)} 선택">` : ''}
+        <button type="button" class="list-item" data-act="pinOpen" data-id="${p.id}"><span class="pin-dot" style="background:${esc(p.color)}">${esc(p.emoji)}</span>
+          <span class="main"><span class="t">${esc(p.name)}</span><span class="s">${p.cat === 'wish' ? '💭 가고 싶은 곳' : '✅ 가 본 곳'}${p.memo ? ' · ' + esc(p.memo.slice(0, 40)) : ''}</span></span><span class="go" aria-hidden="true">➜</span></button>
+        ${arg.selecting ? '' : `<button type="button" class="icon-btn" data-act="pinEditOpen" data-id="${p.id}" aria-label="${esc(p.name)} 수정"><span>✏️</span></button>
+        <button type="button" class="icon-btn danger" data-act="pinDelete" data-id="${p.id}" aria-label="${esc(p.name)} 삭제"><span>🗑</span></button>`}</div>`).join('')
+        : `<div class="empty">${PINS.length ? '조건에 맞는 핀이 없어요.' : '아직 핀이 없어요.<br>지구본을 길게 누르면 그 자리에 핀을 꽂을 수 있어요.'}</div>`}</div>
+      <hr><div class="grid2"><button type="button" class="btn" data-act="pinNewCenter">📍 화면 가운데에 새 핀</button><button type="button" class="btn" data-act="importFile">📥 핀 파일 불러오기</button></div>`,
+  };
+};
+ACT.pinsQ = el => { const a = layers[layers.length - 1].arg; a.q = el.value; rerender(); const i = $('#sheetBody input[type=search]'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } };
+ACT.pinsF = el => { layers[layers.length - 1].arg.f = el.dataset.v; rerender(); };
+ACT.pinsSelMode = () => { const a = layers[layers.length - 1].arg; a.selecting = !a.selecting; a.sel = []; rerender(); };
+ACT.pinSel = el => { const a = layers[layers.length - 1].arg, s = new Set(a.sel); el.checked ? s.add(el.dataset.id) : s.delete(el.dataset.id); a.sel = [...s]; rerender(); };
+ACT.pinsSelAll = () => { const a = layers[layers.length - 1].arg; a.sel = PINS.map(p => p.id); rerender(); };
+ACT.pinsExportSel = () => exportPins(layers[layers.length - 1].arg.sel);
+ACT.pinsDelSel = async () => { const a = layers[layers.length - 1].arg; if (await deletePins(a.sel)) { a.sel = []; a.selecting = false; rerender(); } };
+ACT.pinOpen = el => { const p = PINS.find(x => x.id === el.dataset.id); if (!p) return; closeAll(() => flyTo(p.lat, p.lon, Math.max(cam.zoom, 3.5), () => openLayer('pinCard', { id: p.id }))); };
+ACT.pinNewCenter = () => { const ll = unproject(view.cx, view.cy) || { lat: cam.lat, lon: cam.lon }; openPinEditor(null, ll); };
+
+/* ---------- 여행 기록 ---------- */
+RENDER.travel = () => {
+  const total = COUNTRIES.length, n = VISITED.size, pct = total ? (n / total * 100) : 0;
+  const conts = CONTINENTS.filter(k => COUNTRIES.some(c => c.cont === k));
+  const vis = [...VISITED].map(id => CBYID[id]).filter(Boolean).sort((a, b) => a.ko.localeCompare(b.ko, 'ko'));
+  const pv = PINS.filter(p => p.cat === 'visited').length, pw = PINS.length - pv;
+  return {
+    title: '여행 기록',
+    html: `<div class="row" style="align-items:baseline"><span class="stat-big">${n}</span><span>개 나라 방문</span><span class="spacer"></span><span class="stat-big" style="font-size:1.4rem">${pct.toFixed(1)}%</span></div>
+      <p class="muted small-text" style="margin-top:0">전 세계 대비 비율은 지도 데이터의 ${total}곳(일부 해외 영토·남극 포함) 기준이에요.</p>
+      ${conts.map(k => { const t = COUNTRIES.filter(c => c.cont === k).length, v = vis.filter(c => c.cont === k).length; return `<div class="bar-row"><span>${k}</span><span class="bar"><i style="width:${t ? v / t * 100 : 0}%"></i></span><span class="num">${v}/${t}</span></div>`; }).join('')}
+      <p class="small-text" style="margin-top:12px">📍 핀: 가 본 곳 <b>${pv}</b>개 · 가고 싶은 곳 <b>${pw}</b>개</p>
+      <h3>방문한 나라</h3>
+      <div class="list">${vis.length ? vis.map(c => `<div class="list-row"><button type="button" class="list-item" data-act="travelGo" data-id="${c.id}"><span class="lead">${c.flag}</span><span class="main"><span class="t">${esc(c.ko)}</span><span class="s">${esc(c.cont)}</span></span><span class="go" aria-hidden="true">➜</span></button>
+        <button type="button" class="icon-btn danger" data-act="travelDel" data-id="${c.id}" aria-label="${esc(c.ko)} 방문 표시 해제"><span>✕</span></button></div>`).join('')
+        : '<div class="empty">아직 표시한 나라가 없어요.<br>지구본에서 나라를 누르고 "가 본 나라로 표시"를 켜면 색칠돼요.</div>'}</div>`,
+  };
+};
+ACT.travelGo = el => { const c = CBYID[el.dataset.id]; closeAll(() => goCountry(c)); };
+ACT.travelDel = el => { VISITED.delete(el.dataset.id); saveVisited(); updateStateTex(); rerender(); };
+/* ---------- 국가 퀴즈 ---------- */
+const QUIZ_TYPES = [['name', '나라 이름 맞히기'], ['find', '지구본에서 찾기'], ['capital', '수도 맞히기']];
+const QUIZ_SCOPES = ['전체', '아시아', '유럽', '아프리카', '북아메리카', '남아메리카', '오세아니아'];
+const QUIZ_EXCLUDE = new Set(['ATA', 'ATF', 'SAH', 'PSX', 'CYN', 'SOL', 'KOS']);  // 남극·분쟁 지역 등은 문제에서 제외
+const quizSetup = { type: 'name', scope: '전체' };
+function quizPool(type, scope) {
+  return COUNTRIES.filter(c => !QUIZ_EXCLUDE.has(c.id) && c.type !== 'Indeterminate' && (scope === '전체' || c.cont === scope) && (type !== 'capital' || (c.cap && !c.cap.seat)));
+}
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const fmtDur = ms => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}분 ${String(s % 60).padStart(2, '0')}초`; };
+function quizKey(t, s) { return t + '|' + s; }
+function quizStart() {
+  const { type, scope } = quizSetup;
+  const pool = quizPool(type, scope);
+  if (pool.length < 4) { toast('문제를 낼 나라가 부족해요. 다른 범위를 골라 주세요.'); return; }
+  const targets = shuffle(pool.slice()).slice(0, Math.min(10, pool.length));
+  const all = quizPool(type, '전체');
+  const qs = targets.map(c => {
+    let same = shuffle(pool.filter(x => x !== c && (type !== 'capital' || x.cap.ko !== c.cap.ko)));
+    if (same.length < 3) same = same.concat(shuffle(all.filter(x => x !== c && !same.includes(x))));
+    const opts = shuffle([c, ...same.slice(0, 3)]);
+    return { type, c, opts };
+  });
+  Object.assign(quiz, { active: true, type, scope, qs, i: 0, score: 0, start: performance.now(), wrong: [], answered: false, done: false, keepOnClose: false });
+  quizShow();
+}
+function quizShow() {
+  const q = quiz.qs[quiz.i];
+  quiz.q = q; quiz.answered = false; quiz.picked = null;
+  ui.quizWrongId = 0; ui.quizId = 0; ui.selectedId = 0;
+  if (q.type === 'name') { ui.quizId = q.c.idx; flyTo(q.c.ly, q.c.lx, clamp(zoomForCountry(q.c) * .7, 1.1, 5)); }
+  else if (q.type === 'capital') { ui.quizId = q.c.idx; flyTo(q.c.ly, q.c.lx, clamp(zoomForCountry(q.c) * .6, 1.1, 4)); }
+  else if (q.type === 'find' && quiz.scope !== '전체') {
+    const l = WD.labels.continents.find(x => x.ko === quiz.scope); if (l && quiz.i === 0) flyTo(l.lat, l.lon, 1.5);
+  }
+  updateStateTex();
+  const top = layers[layers.length - 1];
+  if (top && top.name === 'quiz') rerender(); else openLayer('quiz');
+}
+function quizAnswer(ok, picked) {
+  if (quiz.answered) return;
+  quiz.answered = true; quiz.picked = picked;
+  if (ok) quiz.score++; else quiz.wrong.push(quiz.q.c.id);
+  quiz.lastOk = ok;
+  if (quiz.q.type === 'find') {
+    ui.quizId = quiz.q.c.idx; ui.quizWrongId = !ok && picked ? picked.idx : 0;
+    if (!ok) flyTo(quiz.q.c.ly, quiz.q.c.lx, clamp(zoomForCountry(quiz.q.c) * .6, 1.1, 4));
+    updateStateTex();
+  }
+  rerender();
+}
+function quizFindAnswer(c) { quizAnswer(!!c && c.id === quiz.q.c.id, c); }
+function quizNext() {
+  if (quiz.i + 1 < quiz.qs.length) { quiz.i++; quizShow(); return; }
+  quiz.done = true; quiz.elapsed = performance.now() - quiz.start;
+  ui.quizId = 0; ui.quizWrongId = 0; updateStateTex();
+  const key = quizKey(quiz.type, quiz.scope), rec = QUIZ[key] || { best: -1, bestTime: 0, plays: 0, correct: 0, total: 0 };
+  const isBest = quiz.score > rec.best || (quiz.score === rec.best && quiz.elapsed < rec.bestTime);
+  if (isBest) { rec.best = quiz.score; rec.bestTime = Math.round(quiz.elapsed); rec.bestOf = quiz.qs.length; rec.bestAt = nowISO(); }
+  rec.plays++; rec.correct += quiz.score; rec.total += quiz.qs.length; rec.lastWrong = quiz.wrong.slice(); rec.updatedAt = nowISO();
+  QUIZ[key] = rec; saveQuiz();
+  quiz.isBest = isBest;
+  rerender();
+}
+function quizStop() {
+  quiz.active = false; quiz.q = null; ui.quizId = 0; ui.quizWrongId = 0; updateStateTex(); requestRender();
+}
+RENDER.quiz = () => {
+  if (!quiz.active) {
+    const key = quizKey(quizSetup.type, quizSetup.scope), rec = QUIZ[key];
+    const wrong = rec && rec.lastWrong ? rec.lastWrong.map(id => CBYID[id]).filter(Boolean) : [];
+    const pool = quizPool(quizSetup.type, quizSetup.scope).length;
+    return {
+      title: '국가 퀴즈',
+      html: `<h3 style="margin-top:4px">유형</h3><div class="stack">${QUIZ_TYPES.map(([v, l]) => `<button type="button" class="quiz-opt" data-act="quizType" data-v="${v}" aria-pressed="${quizSetup.type === v}" style="${quizSetup.type === v ? 'border-color:var(--accent);background:var(--accent-soft)' : ''}">${quizSetup.type === v ? '● ' : '○ '}${l}</button>`).join('')}</div>
+        <h3>범위</h3><div class="chips">${QUIZ_SCOPES.map(s => `<button type="button" class="chip" data-act="quizScope" data-v="${s}" aria-pressed="${quizSetup.scope === s}">${s}</button>`).join('')}</div>
+        <p class="muted small-text">한 판 ${Math.min(10, pool)}문제 · 이 범위의 나라 ${pool}곳</p>
+        ${rec ? `<div class="note">🏆 최고 기록 <b>${rec.best}/${rec.bestOf || 10}</b> (${fmtDur(rec.bestTime)}) · ${rec.plays}판 · 전체 정답률 ${rec.total ? Math.round(rec.correct / rec.total * 100) : 0}%</div>` : ''}
+        <button type="button" class="btn primary block" data-act="quizGo" ${pool < 4 ? 'disabled' : ''}>시작하기</button>
+        ${wrong.length ? `<h3>틀린 나라 복습 (지난 판)</h3><div class="list">${wrong.map(c => `<button type="button" class="list-item" data-act="travelGo" data-id="${c.id}"><span class="lead">${c.flag}</span><span class="main"><span class="t">${esc(c.ko)}</span><span class="s">수도 ${c.cap ? esc(c.cap.ko) : '정보 없음'} · ${esc(c.cont)}</span></span><span class="go">➜</span></button>`).join('')}</div>` : ''}`,
+    };
+  }
+  if (quiz.done) {
+    const n = quiz.qs.length;
+    return {
+      title: '퀴즈 결과', size: 'small',
+      html: `<div class="row" style="align-items:baseline"><span class="stat-big">${quiz.score} / ${n}</span><span class="spacer"></span><span>${fmtDur(quiz.elapsed)} · 정답률 ${Math.round(quiz.score / n * 100)}%</span></div>
+        ${quiz.isBest ? '<div class="note">🎉 새 최고 기록이에요!</div>' : ''}
+        ${quiz.wrong.length ? `<h3>틀린 나라 복습</h3><div class="list">${quiz.wrong.map(id => CBYID[id]).map(c => `<button type="button" class="list-item" data-act="travelGo" data-id="${c.id}"><span class="lead">${c.flag}</span><span class="main"><span class="t">${esc(c.ko)}</span><span class="s">수도 ${c.cap ? esc(c.cap.ko) : '정보 없음'} · ${esc(c.cont)}</span></span><span class="go">➜</span></button>`).join('')}</div>` : '<p>모두 맞혔어요! 👏</p>'}
+        <div class="grid2" style="margin-top:12px"><button type="button" class="btn" data-act="quizEnd">끝내기</button><button type="button" class="btn primary" data-act="quizGo">다시 하기</button></div>`,
+    };
+  }
+  const q = quiz.q, n = quiz.qs.length;
+  let body = '';
+  if (q.type === 'name') body = `<p style="font-weight:600;margin:6px 0">분홍색으로 표시된 나라는 어디일까요?</p>`;
+  else if (q.type === 'capital') body = `<p style="font-weight:600;margin:6px 0">${q.c.flag} ${esc(q.c.ko)}의 수도는?</p>`;
+  else body = `<p style="font-weight:600;margin:6px 0">🔎 <b>${esc(q.c.ko)}</b>을(를) 지구본에서 찾아 눌러 주세요.</p><p class="muted small-text" style="margin:0">돌리고 확대해서 찾아보세요. 퀴즈 중에는 나라 이름이 숨겨져요.</p>`;
+  if (q.type !== 'find') {
+    body += `<div class="quiz-opts">${q.opts.map(o => {
+      const label = q.type === 'capital' ? o.cap.ko : o.ko;
+      let cls = '';
+      if (quiz.answered) { if (o === q.c) cls = ' right'; else if (o === quiz.picked) cls = ' wrong'; }
+      return `<button type="button" class="quiz-opt${cls}" data-act="quizPick" data-id="${o.id}" ${quiz.answered ? 'disabled' : ''}>${esc(label)}</button>`;
+    }).join('')}</div>`;
+  }
+  if (quiz.answered) {
+    const ans = q.type === 'capital' ? `${q.c.cap.ko} (${q.c.ko})` : q.c.ko;
+    body += `<div class="note" style="${quiz.lastOk ? '' : 'background:var(--danger-bg)'}">${quiz.lastOk ? '⭕ 정답이에요!' : `❌ 아쉬워요. 정답은 <b>${esc(ans)}</b>${q.type === 'find' && quiz.picked ? ` (누른 곳: ${esc(quiz.picked.ko)})` : ''}`}</div>
+      <button type="button" class="btn primary block" data-act="quizNext" autofocus>${quiz.i + 1 < n ? '다음 문제' : '결과 보기'}</button>`;
+  }
+  return {
+    title: `퀴즈 ${quiz.i + 1} / ${n}`, size: 'compact', extra: `<span class="tnum muted small-text" id="quizTimer"></span>`,
+    html: `<div class="progress"><i style="width:${(quiz.i + (quiz.answered ? 1 : 0)) / n * 100}%"></i></div>${body}`,
+    tick: () => { const el = $('#quizTimer'); if (el) el.textContent = `⏱ ${fmtDur(performance.now() - quiz.start)} · ${quiz.score}점`; },
+    mount: () => { const el = $('#quizTimer'); if (el) el.textContent = `⏱ ${fmtDur(performance.now() - quiz.start)} · ${quiz.score}점`; },
+  };
+};
+ACT.quizType = el => { quizSetup.type = el.dataset.v; rerender(); };
+ACT.quizScope = el => { quizSetup.scope = el.dataset.v; rerender(); };
+ACT.quizGo = () => { quizStart(); };
+ACT.quizPick = el => { const c = CBYID[el.dataset.id]; quizAnswer(c === quiz.q.c, c); };
+ACT.quizNext = () => quizNext();
+ACT.quizEnd = () => { quizStop(); rerender(); };
+
+/* ---------- 화면 저장 (PNG) ---------- */
+const shotOpts = { overlay: true, stamp: true };
+RENDER.shot = () => ({
+  title: '화면 저장', size: 'small',
+  html: `<p class="muted small-text" style="margin-top:0">지금 보이는 지구본을 PNG 그림으로 저장해요. 메뉴와 버튼은 저장되지 않아요.</p>
+    <label class="switch-row"><span>이름·핀·경로선도 함께</span><span class="switch"><input type="checkbox" data-change="shotOpt" data-k="overlay" ${shotOpts.overlay ? 'checked' : ''}><i></i></span></label>
+    <label class="switch-row"><span>날짜와 중심 위치를 작게 넣기</span><span class="switch"><input type="checkbox" data-change="shotOpt" data-k="stamp" ${shotOpts.stamp ? 'checked' : ''}><i></i></span></label>
+    <button type="button" class="btn primary block" data-act="shotSave" style="margin-top:10px">📷 PNG 저장·공유</button>`,
+});
+ACT.shotOpt = el => { shotOpts[el.dataset.k] = el.checked; };
+function captureCanvas(opts = shotOpts) {
+  const W = glCanvas.width, H = glCanvas.height, dpr = W / view.w;
+  const out = mkCanvas(W, H), ctx = out.getContext('2d');
+  const g = ctx.createRadialGradient(W / 2, H * .45, 0, W / 2, H * .45, Math.max(W, H) * .7);
+  g.addColorStop(0, '#0d1940'); g.addColorStop(.45, '#0b1433'); g.addColorStop(1, '#060b1e');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.drawImage($('#stars'), 0, 0, W, H); ctx.globalAlpha = .8; ctx.drawImage($('#twinkle'), 0, 0, W, H); ctx.globalAlpha = 1;
+  const pad = [view.padB, view.padR];
+  view.padB = 0; view.padR = 0;   // 시트에 밀린 위치가 아닌 화면 가운데 기준으로 저장
+  SUN = subsolar(simDate()); updateView();
+  if (GL.gl && !GL.lost) drawGL(); else draw2D();
+  ctx.drawImage(glCanvas, 0, 0);
+  if (opts.overlay) { drawOverlay(performance.now()); ctx.drawImage(ovCanvas, 0, 0, W, H); }
+  view.padB = pad[0]; view.padR = pad[1]; updateView();
+  if (opts.stamp) {
+    const c = unproject(view.cx, view.cy) || { lat: cam.lat, lon: cam.lon };
+    const text = `${fmtLocal(simDate(), true)} · 중심 ${fmtLatLon(c.lat, c.lon)} · ${APP_NAME}`;
+    ctx.font = `500 ${Math.round(12 * dpr)}px ${FONT}`; ctx.textBaseline = 'bottom'; ctx.textAlign = 'left';
+    ctx.lineWidth = 3 * dpr; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText(text, 12 * dpr, H - 10 * dpr);
+    ctx.fillStyle = 'rgba(235,242,255,.92)'; ctx.fillText(text, 12 * dpr, H - 10 * dpr);
+  }
+  return out;
+}
+function dataURLtoBlob(url) {
+  const [h, b] = url.split(','), bin = atob(b), arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: h.match(/:(.*?);/)[1] });
+}
+ACT.shotSave = async () => {
+  try {
+    const cv = captureCanvas();
+    requestRender();
+    const blob = dataURLtoBlob(cv.toDataURL('image/png'));
+    const d = new Date(), name = `지구본_${ymd(d)}_${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}.png`;
+    const r = await shareOrDownload(blob, name, APP_NAME);
+    if (r !== 'cancelled') toast(r === 'shared' ? '그림을 공유했어요.' : '그림을 저장했어요.');
+  } catch (e) { toast('그림을 저장하지 못했어요: ' + e.message); }
+};
+
+/* ---------- 가이드 투어 ---------- */
+const TOUR = [
+  ['아시아', 38, 95, 1.35, '가장 넓고 사람이 가장 많이 사는 대륙이에요. 히말라야산맥과 우리나라가 있어요.'],
+  ['유럽', 50, 15, 2.1, '작은 나라들이 가까이 모여 있고, 오래된 역사 도시가 곳곳에 있어요.'],
+  ['아프리카', 3, 20, 1.45, '두 번째로 넓은 대륙으로, 사하라 사막과 나일강이 있어요.'],
+  ['북아메리카', 45, -100, 1.35, '캐나다·미국·멕시코와 중앙아메리카, 카리브해의 나라들이 있어요.'],
+  ['남아메리카', -16, -60, 1.55, '안데스산맥과 아마존 열대우림이 있는 대륙이에요.'],
+  ['오세아니아', -24, 145, 1.5, '호주와 뉴질랜드, 태평양의 많은 섬나라가 모여 있어요.'],
+  ['남극', -78, 20, 1.3, '두꺼운 얼음으로 덮인 대륙으로, 연구 기지 말고는 사람이 살지 않아요.'],
+];
+function tourStep() {
+  clearTimeout(tour.timer);
+  if (!tour.running) return;
+  if (tour.i >= TOUR.length) {
+    showBanner('🧭 둘러보기를 마쳤어요. 한국으로 돌아갈게요.', [['tourStop', '닫기']]);
+    flyTo(HOME.lat, HOME.lon, 1.6, () => { tour.timer = setTimeout(tourStop, 2500); });
+    return;
+  }
+  const [name, lat, lon, z, desc] = TOUR[tour.i];
+  showBanner(`🧭 ${tour.i + 1}/${TOUR.length} ${name} — ${desc}`, [['tourNext', '다음'], ['tourStop', '그만']]);
+  flyTo(lat, lon, z, () => { tour.timer = setTimeout(() => { tour.i++; tourStep(); }, 6000); }, 2200);
+}
+ACT.tourStart = () => closeAll(() => { tour.running = true; tour.i = 0; tourStep(); });
+ACT.tourNext = () => { tour.i++; tourStep(); };
+function tourStop() { tour.running = false; clearTimeout(tour.timer); hideBanner(); requestRender(); }
+ACT.tourStop = tourStop;
+
+/* ---------- 설정 ---------- */
+let wakeLockObj = null;
+async function applyWakeLock() {
+  try {
+    if (S.wakeLock && 'wakeLock' in navigator && !document.hidden) { if (!wakeLockObj) { wakeLockObj = await navigator.wakeLock.request('screen'); wakeLockObj.addEventListener('release', () => { wakeLockObj = null; }); } }
+    else if (wakeLockObj) { await wakeLockObj.release(); wakeLockObj = null; }
+  } catch (e) { wakeLockObj = null; }
+}
+function setQuality(q, auto) {
+  S.quality = q; saveSettings();
+  resize(); rebuildTextures(false);
+  if (!auto) rerender();
+}
+RENDER.settings = () => {
+  const backups = store.get('backups', []) || [];
+  const fsOk = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+  return {
+    title: '설정',
+    html: `<h3 style="margin-top:4px">화면 모드</h3>${seg('theme', [['system', '🌓 시스템 설정 따르기'], ['light', '☀️ 라이트'], ['dark', '🌙 다크']], themePref())}
+      <p class="muted small-text">지구본이 있는 우주 배경은 항상 어둡게 보여요. 메뉴와 카드에만 적용돼요.</p>
+      <h3>단위</h3><div class="grid2">${seg('units', [['km', 'km'], ['mi', '마일']], S.units)}${seg('clock', [['24', '24시간'], ['12', '12시간']], S.clock24 ? '24' : '12')}</div>
+      <h3>지구본</h3>
+      ${sw('autoRotate', '자동 회전', S.autoRotate, '가만히 두면 천천히 돌아가요')}
+      <div class="field"><span>품질</span>${seg('quality', [['high', '고품질'], ['normal', '보통'], ['saver', '절약']], S.quality)}</div>
+      <p class="muted small-text">품질에 따라 지도 해상도와 구름 그림자 효과가 달라져요. 화면이 느려지면 자동으로 낮춰요. 지구본이 멈춰 있으면 다시 그리지 않아 배터리를 아껴요.</p>
+      ${sw('wakeLock', '화면 꺼짐 방지', S.wakeLock, 'wakeLock' in navigator ? '앱을 보는 동안 화면이 꺼지지 않아요' : '이 브라우저는 지원하지 않아요', !('wakeLock' in navigator))}
+      <button type="button" class="btn block" data-act="fullscreen" ${fsOk ? '' : 'disabled'}>⛶ 전체 화면 ${fsOk ? '' : '(이 기기에서 지원 안 됨)'}</button>
+      <h3>자동 보관본</h3>
+      <p class="muted small-text" style="margin-top:0">덮어쓰기 불러오기, 전체 삭제, 핀 여러 개 삭제 직전의 데이터를 최근 2개까지 자동으로 보관해요.</p>
+      <div class="list">${backups.length ? backups.map((b, i) => `<div class="list-row"><div class="list-item" style="cursor:default"><span class="lead">🗂️</span><span class="main"><span class="t">${esc(b.reason)}</span><span class="s">${esc(new Date(b.at).toLocaleString('ko-KR'))} · 핀 ${b.data && b.data.data ? b.data.data.pins.length : 0}개</span></span></div><button type="button" class="btn" data-act="backupRestore" data-i="${i}">복원</button></div>`).join('') : '<div class="empty">보관본이 없어요.</div>'}</div>
+      <hr><button type="button" class="btn danger block" data-act="wipeAll">🗑 내 기록 전체 삭제</button>`,
+  };
+};
+ACT.clock = el => { S.clock24 = el.dataset.v === '24'; saveSettings(); rerender(); refreshTimeUI(); };
+ACT.quality = el => setQuality(el.dataset.v);
+ACT.fullscreen = () => {
+  const d = document, el = d.documentElement;
+  try {
+    if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    else (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+  } catch (e) { toast('전체 화면으로 바꿀 수 없어요.'); }
+};
+ACT.backupRestore = async el => {
+  const b = (store.get('backups', []) || [])[+el.dataset.i];
+  if (!b) return;
+  if (!await confirmDlg('보관본 복원', `${new Date(b.at).toLocaleString('ko-KR')}의 보관본(${b.reason})으로 지금 데이터를 바꿀까요?`, '복원')) return;
+  const r = applyImport(normalizeImport(b.data).data, 'overwrite', true);
+  if (r) toast('보관본으로 복원했어요.');
+  rerender();
+};
+ACT.wipeAll = async () => {
+  if (!await confirmDlg('내 기록 전체 삭제', '핀, 방문한 나라, 세계 시계, 퀴즈 기록을 모두 지울까요?', '계속', true)) return;
+  if (!await confirmDlg('정말 삭제할까요?', '삭제 직전 데이터는 자동 보관본으로 남겨 두어 설정에서 복원할 수 있어요.', '전체 삭제', true)) return;
+  makeAutoBackup('전체 삭제 전');
+  PINS = []; VISITED = new Set(); QUIZ = {}; CLOCKS = ['KOR:Seoul'];
+  savePins(); saveVisited(); saveQuiz(); saveClocks(); updateStateTex(); rerender();
+  toast('내 기록을 모두 지웠어요.');
+};
+
+/* ---------- 저장·불러오기 ---------- */
+function exportData(kind = 'full', pinIds) {
+  const pins = pinIds ? PINS.filter(p => pinIds.includes(p.id)) : PINS;
+  const data = kind === 'pins' ? { pins } : { pins, visited: [...VISITED], clocks: CLOCKS.slice(), quiz: QUIZ, settings: Object.assign({}, S, { theme: themePref() }) };
+  return { app: APP_NAME, kind, formatVersion: FORMAT_VERSION, appVersion: APP_VERSION, exportedAt: nowISO(), data: JSON.parse(JSON.stringify(data)) };
+}
+async function exportAll() {
+  const obj = exportData('full');
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const r = await shareOrDownload(blob, `지구본_백업_${ymd()}.json`, '지구본 백업');
+  if (r === 'cancelled') return;
+  META.lastExport = nowISO(); saveMeta();
+  toast(`전체 저장 완료: 핀 ${PINS.length}개, 방문한 나라 ${VISITED.size}개`);
+  rerender();
+}
+async function exportPins(ids) {
+  if (!ids || !ids.length) return;
+  const obj = exportData('pins', ids);
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const one = obj.data.pins.length === 1 ? obj.data.pins[0].name.replace(/[\\/:*?"<>|]/g, '_').slice(0, 30) : `${obj.data.pins.length}개`;
+  const r = await shareOrDownload(blob, `지구본_핀_${one}_${ymd()}.json`, '지구본 핀');
+  if (r !== 'cancelled') toast(`핀 ${obj.data.pins.length}개를 파일로 저장했어요.`);
+}
+ACT.exportAll = () => exportAll();
+/* 예전 형식 → 현재 형식 변환 (버전별) */
+const MIGRATIONS = {
+  // 0: formatVersion이 없는 형식 (핀 배열만 있거나 최상위에 바로 데이터가 있는 파일)
+  0: o => {
+    if (Array.isArray(o)) return { app: APP_NAME, kind: 'pins', formatVersion: 1, exportedAt: null, data: { pins: o } };
+    const d = o.data || o;
+    return { app: APP_NAME, kind: o.kind || (d.visited || d.quiz ? 'full' : 'pins'), formatVersion: 1, appVersion: o.appVersion, exportedAt: o.exportedAt || null, data: d };
+  },
+};
+function normalizeImport(obj) {
+  if (obj == null || typeof obj !== 'object') return { error: '파일 안에 데이터가 없어요.' };
+  if (!Array.isArray(obj) && obj.app && obj.app !== APP_NAME) return { error: `다른 앱("${String(obj.app).slice(0, 30)}")의 파일이에요.` };
+  if (!Array.isArray(obj) && !obj.app && !obj.pins && !(obj.data && obj.data.pins)) return { error: '이 앱의 저장 파일이 아니에요.' };
+  let v = Array.isArray(obj) ? 0 : (+obj.formatVersion || 0);
+  if (v > FORMAT_VERSION) return { error: `더 새로운 버전의 앱(형식 ${v})에서 만든 파일이라 읽을 수 없어요. 앱을 새로 고친 뒤 다시 시도해 주세요.` };
+  let o = obj;
+  while (v < FORMAT_VERSION) { const m = MIGRATIONS[v]; if (!m) return { error: `형식 ${v} 파일은 변환할 수 없어요.` }; o = m(o); v = o.formatVersion; }
+  const d = o.data;
+  if (!d || typeof d !== 'object') return { error: '파일의 데이터 부분이 손상되었어요.' };
+  if (d.pins != null && !Array.isArray(d.pins)) return { error: '핀 목록이 올바르지 않아요.' };
+  const rawPins = d.pins || [];
+  const pins = sanitizePins(rawPins);
+  const out = {
+    kind: o.kind === 'pins' ? 'pins' : 'full', exportedAt: o.exportedAt, appVersion: o.appVersion,
+    data: {
+      pins,
+      visited: Array.isArray(d.visited) ? d.visited.filter(id => typeof id === 'string' && CBYID[id]) : null,
+      clocks: Array.isArray(d.clocks) ? d.clocks.filter(k => typeof k === 'string' && CITYBYKEY[k]) : null,
+      quiz: d.quiz && typeof d.quiz === 'object' && !Array.isArray(d.quiz) ? d.quiz : null,
+      settings: d.settings && typeof d.settings === 'object' ? d.settings : null,
+    },
+    skipped: rawPins.length - pins.length,
+  };
+  return out;
+}
+ACT.importFile = () => { const f = $('#fileInput'); f.value = ''; f.click(); };
+async function onFileChosen(file) {
+  if (!file) return;
+  let text;
+  try {
+    if (file.size > 20 * 1024 * 1024) throw new Error('파일이 너무 커요(20MB 초과).');
+    text = await file.text();
+  } catch (e) { await dialog({ title: '불러오지 못했어요', message: e.message + '\n기존 데이터는 그대로예요.' }); return; }
+  let obj;
+  try { obj = JSON.parse(text.replace(/^﻿/, '')); }
+  catch (e) { await dialog({ title: '불러오지 못했어요', message: 'JSON 형식이 아니거나 파일이 손상되었어요.\n기존 데이터는 그대로예요.' }); return; }
+  const r = normalizeImport(obj);
+  if (r.error) { await dialog({ title: '불러오지 못했어요', message: r.error + '\n기존 데이터는 그대로예요.' }); return; }
+  openLayer('importPreview', { r, mode: 'merge', name: file.name });
+}
+RENDER.importPreview = arg => {
+  const r = arg.r, d = r.data;
+  const nq = d.quiz ? Object.keys(d.quiz).length : 0;
+  return {
+    title: '불러오기 미리보기', size: 'small',
+    html: `<p class="small-text muted" style="margin-top:0">📄 ${esc(arg.name)}</p>
+      <div class="note"><b>${r.kind === 'pins' ? '핀 파일' : '전체 백업'}</b> · 핀 ${d.pins.length}개${d.visited ? `, 방문한 나라 ${d.visited.length}개` : ''}${d.clocks ? `, 세계 시계 ${d.clocks.length}곳` : ''}${nq ? `, 퀴즈 기록 ${nq}개` : ''}<br>
+      저장일 ${r.exportedAt ? esc(new Date(r.exportedAt).toLocaleString('ko-KR')) : '알 수 없음'}${r.appVersion ? ` · 앱 버전 ${esc(r.appVersion)}` : ''}</div>
+      ${r.skipped ? `<p class="small-text" style="color:var(--danger)">형식이 맞지 않는 핀 ${r.skipped}개는 건너뛰어요.</p>` : ''}
+      ${r.kind === 'full' ? `<div class="field"><span>적용 방법</span>${seg('importMode', [['merge', '합치기 (기본)'], ['overwrite', '덮어쓰기']], arg.mode)}</div>
+      <p class="muted small-text">${arg.mode === 'merge' ? '같은 핀은 최근에 수정한 쪽을 남기고, 방문한 나라는 합치고, 퀴즈 최고 기록은 높은 쪽을 남겨요.' : '지금 데이터를 모두 파일 내용으로 바꿔요. 바꾸기 직전 데이터는 자동 보관본으로 남아요.'}</p>`
+        : '<p class="muted small-text">핀 파일은 지금 핀에 합쳐져요. 같은 핀은 최근에 수정한 쪽을 남겨요.</p>'}
+      <div class="grid2"><button type="button" class="btn" data-act="close">취소</button><button type="button" class="btn ${arg.mode === 'overwrite' ? 'danger' : 'primary'}" data-act="importApply">적용</button></div>`,
+  };
+};
+ACT.importMode = el => { layers[layers.length - 1].arg.mode = el.dataset.v; rerender(); };
+ACT.importApply = async () => {
+  const arg = layers[layers.length - 1].arg, mode = arg.r.kind === 'pins' ? 'merge' : arg.mode;
+  if (mode === 'overwrite') {
+    if (!await confirmDlg('덮어쓰기', '지금 데이터를 모두 파일 내용으로 바꿀까요?', '계속', true)) return;
+    if (!await confirmDlg('정말 덮어쓸까요?', `핀 ${PINS.length}개, 방문한 나라 ${VISITED.size}개가 파일 내용으로 바뀌어요.\n직전 데이터는 자동 보관본으로 남아요.`, '덮어쓰기', true)) return;
+  }
+  const res = applyImport(arg.r.data, mode);
+  if (res) { closeLayer(); await dialog({ title: '불러오기 완료', message: res }); }
+};
+function snapshotStore() {
+  const keys = ['pins', 'visited', 'clocks', 'quiz', 'settings'];
+  return { raw: Object.fromEntries(keys.map(k => [k, store.raw(k)])), mem: { PINS: PINS.slice(), VISITED: new Set(VISITED), CLOCKS: CLOCKS.slice(), QUIZ: JSON.parse(JSON.stringify(QUIZ)), S: Object.assign({}, S) } };
+}
+function restoreSnapshot(s) {
+  try { for (const [k, v] of Object.entries(s.raw)) store.setRaw(k, v); } catch (e) {}
+  PINS = s.mem.PINS; VISITED = s.mem.VISITED; CLOCKS = s.mem.CLOCKS; QUIZ = s.mem.QUIZ; Object.assign(S, s.mem.S);
+}
+function strictSet(key, val) {
+  const raw = JSON.stringify(val);
+  if (!store.ok) { store.setRaw(key, raw); return; }
+  localStorage.setItem('globe.' + key, raw);   // 실패하면 예외 → 롤백
+}
+function applyImport(d, mode, silent) {
+  const snap = snapshotStore();
+  try {
+    let added = 0, updated = 0, vAdded = 0, qUp = 0;
+    let pins, visited, clocks, quizRec, settings = null;
+    if (mode === 'overwrite') {
+      makeAutoBackup('덮어쓰기 불러오기 전');
+      pins = d.pins.slice(); added = pins.length;
+      visited = new Set(d.visited || []); vAdded = visited.size;
+      clocks = d.clocks && d.clocks.length ? d.clocks.slice() : CLOCKS.slice();
+      quizRec = d.quiz || {};
+      settings = d.settings;
+    } else {
+      const map = new Map(PINS.map(p => [p.id, p]));
+      for (const p of d.pins) {
+        const cur = map.get(p.id);
+        if (!cur) { map.set(p.id, p); added++; }
+        else if (Date.parse(p.updatedAt) > Date.parse(cur.updatedAt)) { map.set(p.id, p); updated++; }
+      }
+      pins = [...map.values()];
+      visited = new Set(VISITED); for (const id of d.visited || []) if (!visited.has(id)) { visited.add(id); vAdded++; }
+      clocks = CLOCKS.slice(); for (const k of d.clocks || []) if (!clocks.includes(k) && clocks.length < 16) clocks.push(k);
+      quizRec = JSON.parse(JSON.stringify(QUIZ));
+      for (const [k, r] of Object.entries(d.quiz || {})) {
+        if (!r || typeof r !== 'object') continue;
+        const cur = quizRec[k];
+        const better = !cur || (+r.best > +cur.best) || (+r.best === +cur.best && +r.bestTime < +cur.bestTime);
+        if (better) { quizRec[k] = Object.assign({}, cur || {}, { best: +r.best || 0, bestTime: +r.bestTime || 0, bestOf: r.bestOf || 10, bestAt: r.bestAt, plays: Math.max(+(cur && cur.plays) || 0, +r.plays || 0), correct: Math.max(+(cur && cur.correct) || 0, +r.correct || 0), total: Math.max(+(cur && cur.total) || 0, +r.total || 0), lastWrong: Array.isArray(r.lastWrong) ? r.lastWrong : [] }); qUp++; }
+      }
+    }
+    strictSet('pins', pins); strictSet('visited', [...visited]); strictSet('clocks', clocks); strictSet('quiz', quizRec);
+    PINS = pins; VISITED = visited; CLOCKS = clocks; QUIZ = quizRec;
+    if (settings) {
+      for (const k of Object.keys(DEFAULT_SETTINGS)) if (k in settings && typeof settings[k] === typeof DEFAULT_SETTINGS[k]) S[k] = settings[k];
+      strictSet('settings', S);
+      if (settings.theme && THEMES[settings.theme]) applyTheme(settings.theme);
+      rebuildTextures(false);
+    }
+    updateStateTex(); requestRender();
+    if (silent) return true;
+    return mode === 'overwrite'
+      ? `덮어쓰기 완료: 핀 ${pins.length}개, 방문한 나라 ${visited.size}개로 바뀌었어요.`
+      : `합치기 완료: 새로 추가 ${added}개, 업데이트 ${updated}개${vAdded ? `, 방문한 나라 +${vAdded}` : ''}${qUp ? `, 퀴즈 기록 ${qUp}개 갱신` : ''}`;
+  } catch (e) {
+    restoreSnapshot(snap); updateStateTex(); requestRender();
+    dialog({ title: '불러오기 실패', message: '적용 중 문제가 생겨 원래 데이터로 되돌렸어요.\n(' + (e && e.message || e) + ')' });
+    return null;
+  }
+}
+function makeAutoBackup(reason) {
+  const list = store.get('backups', []) || [];
+  list.unshift({ at: nowISO(), reason, data: exportData('full') });
+  if (!store.set('backups', list.slice(0, 2))) store.set('backups', list.slice(0, 1));
+}
+RENDER.backup = () => ({
+  title: '저장·불러오기',
+  html: `<p class="small-text muted" style="margin-top:0">기록은 이 기기의 브라우저에만 저장돼요. 기기를 바꾸거나 브라우저 데이터를 지우기 전에 파일로 저장해 두세요.</p>
+    <div class="note">마지막 전체 저장: ${META.lastExport ? esc(new Date(META.lastExport).toLocaleString('ko-KR')) : '아직 없음'}<br>지금 데이터: 핀 ${PINS.length}개 · 방문한 나라 ${VISITED.size}개 · 세계 시계 ${CLOCKS.length}곳</div>
+    <div class="stack">
+      <button type="button" class="btn primary block" data-act="exportAll">💾 전체 저장 (.json)</button>
+      <button type="button" class="btn block" data-act="importFile">📂 전체 불러오기</button>
+      <button type="button" class="btn block" data-act="importFile">📥 핀 파일 불러오기</button>
+    </div>
+    <p class="muted small-text">휴대폰에서는 공유 창이 열리면 "파일에 저장"이나 드라이브를 고르면 돼요. 핀 몇 개만 주고받으려면 "내 핀"에서 선택해 저장하세요.<br>불러오기 전에 내용을 미리 보여 주고, 합치기나 덮어쓰기를 고를 수 있어요. 덮어쓰기 직전 데이터는 설정의 "자동 보관본"에서 복원할 수 있어요.</p>`,
+});
+
+/* ---------- 정보·도움말 ---------- */
+RENDER.info = () => ({
+  title: '정보·도움말',
+  html: `<p style="margin-top:0"><b>${APP_NAME}</b> <span class="muted">v${APP_VERSION}</span><br>손가락으로 돌려 보고, 나라와 도시를 찾고, 가 본 곳에 핀을 꽂아 나만의 여행 지도를 만드는 3D 지구본이에요.</p>
+    <h3>조작 방법</h3>
+    <ul class="small-text" style="padding-left:18px;margin:0">
+      <li>한 손가락으로 끌기: 돌리기 (손을 떼면 부드럽게 멈춰요)</li>
+      <li>두 손가락 벌리기·오므리기, 마우스 휠: 확대·축소 · 두 손가락 비틀기: 회전</li>
+      <li>두 번 누르기: 그곳으로 이동하며 확대</li>
+      <li>한 번 누르기: 그 나라의 정보 카드 · 길게 누르기: 핀 꽂기</li>
+      <li>🧭 버튼: 북쪽이 위로 · 🏠 버튼: 한국으로 돌아가기</li>
+      <li>키보드: 방향키로 돌리기, +/− 키로 확대·축소</li>
+    </ul>
+    <h3>알아 두세요</h3>
+    <ul class="small-text" style="padding-left:18px;margin:0">
+      <li>지도는 1:110m 해상도라 작은 섬이나 작은 나라(모나코, 몰디브, 싱가포르 등)는 모양이 빠져 있어요. 도시 마커(수도)로 찾고, 핀으로 직접 추가할 수 있어요.</li>
+      <li>"가상 위성" 스타일은 실제 지형이 아닌 꾸며 낸 색이에요. 구름과 도시 불빛도 꾸민 효과예요.</li>
+      <li>낮과 밤은 기기 시각으로 계산한 실제 태양 위치를 따라요.</li>
+      <li>기록은 이 기기에만 저장돼요. "저장·불러오기"로 정기적으로 파일을 저장해 두세요.</li>
+    </ul>
+    <h3>데이터 출처</h3>
+    <p class="small-text">국가 경계·국가 정보·도시: <b>Natural Earth</b> 1:110m Admin 0 Countries, Populated Places (퍼블릭 도메인, naturalearthdata.com). 기준: ${esc(WD ? WD.sourceDate : '-')}에 받은 GitHub natural-earth-vector 저장소 파일.<br>
+    일부 도시의 시간대와 해외 영토 중심 도시 좌표는 IANA 시간대 데이터베이스(zone.tab)로 보완했어요.<br>글꼴: Pretendard (SIL Open Font License).</p>
+    <div class="note">국경과 영토 표시는 데이터 출처(Natural Earth) 기준이며, 특정 국가나 단체의 입장을 나타내는 것이 아니에요.</div>
+    <p class="muted small-text">화면: ${GL.failed ? '간단한 2D 화면(WebGL 사용 불가: 구름·대기 효과 일부 빠짐)' : 'WebGL'} · 저장소: ${store.ok ? '사용 가능' : '사용할 수 없음 (이번 실행 동안만 기억해요)'}</p>`,
+});
+
+/* =========================================================
+ * 시작
+ * ========================================================= */
+function resize() {
+  const w = Math.max(1, window.innerWidth), h = Math.max(1, window.innerHeight);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2, QUALITY[S.quality].dpr);
+  const changed = w !== view.w || h !== view.h || dpr !== view.dpr;
+  view.w = w; view.h = h; view.dpr = dpr;
+  for (const c of [glCanvas, ovCanvas]) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  if (changed) drawStars();
+  if (typeof updateSheetPad === 'function' && ovCanvas) updateSheetPad();
+  updateView(); requestRender();
+}
+function init() {
+  prepareData();
+  ovCanvas = $('#ov'); ovCtx = ovCanvas.getContext('2d');
+  bindDelegation(); initHistory();
+  let glOk = false;
+  try { glOk = initGL(); } catch (e) { glOk = false; }
+  if (!glOk) { switchTo2D(); setTimeout(() => toast('이 기기는 WebGL을 쓸 수 없어 간단한 화면으로 보여요. 구름·대기 효과 일부가 빠져요.', { ms: 5000 }), 600); }
+  resize();
+  bindInput();
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 120));
+  if (window.visualViewport) visualViewport.addEventListener('resize', resize);
+  $('#btnMenu').onclick = () => openLayer('menu');
+  $('#btnSearch').onclick = () => openLayer('search', { q: '' });
+  $('#btnCompass').onclick = () => { anim.inertia = null; const from = cam.roll; if (Math.abs(from) < .001) { toast('이미 북쪽이 위예요.', { ms: 1500 }); return; } flyTo(cam.lat, cam.lon, cam.zoom, null, 500); };
+  $('#btnHome').onclick = () => { ui.selectedId = 0; updateStateTex(); flyTo(HOME.lat, HOME.lon, 2.6); };
+  $('#fileInput').addEventListener('change', e => onFileChosen(e.target.files[0]));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { requestRender(); applyWakeLock(); refreshTimeUI(); } });
+  if (window.matchMedia) {
+    const mq = matchMedia('(prefers-color-scheme: light)');
+    const onCh = () => { if (themePref() === 'system') { applyTheme('system'); rerender(); } };
+    mq.addEventListener ? mq.addEventListener('change', onCh) : mq.addListener(onCh);
+  }
+  if (document.fonts) {
+    document.fonts.ready.then(() => requestRender());
+    try { document.fonts.addEventListener('loadingdone', () => requestRender()); } catch (e) {}
+  }
+  setInterval(() => { if (!document.hidden) { requestRender(); if (!sim.live && !sim.playing) refreshTimeUI(); } }, 30000);   // 태양 위치 갱신
+  if (!WD) setTimeout(() => toast('지도 데이터(world-data.js)를 읽지 못했어요. 지도 없이 실행 중이에요.', { ms: 7000 }), 300);
+  if (!store.ok) setTimeout(() => toast('이 브라우저에서는 기록을 저장할 수 없어요. 이번 실행 동안만 기억해요.', { ms: 6000 }), 900);
+  else if (store.problems.length) setTimeout(() => toast('저장된 데이터 일부가 손상되어 기본값으로 시작했어요.', { ms: 6000 }), 900);
+  updateStateTex();
+  applyWakeLock();
+  // 지도 텍스처 만들기
+  $('#loading').hidden = false;
+  setTimeout(() => {
+    try { buildTextures(true); if (GL.gl) uploadAllTextures(); }
+    catch (e) { toast('지도 그림을 만들지 못했어요: ' + e.message, { ms: 6000 }); }
+    $('#loading').hidden = true; requestRender();
+  }, 30);
+  // 서비스 워커 (실패해도 앱은 동작)
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
+  }
+  window.__globe = { cam, view, project, unproject, countryAt, subsolar, gcDistanceKm, searchAll, CBYID, CITYBYKEY, COUNTRIES, CITIES, flyTo, S, sim, GL, layers, openLayer, quiz, route, setRoute, cityEndpoint, PINS: () => PINS, VISITED: () => VISITED, exportData, normalizeImport, applyImport, store, perf, isRendering: () => !!rafId, handleTap, TEX };
+}
+try { init(); }
+catch (e) {
+  console.error(e);
+  document.body.insertAdjacentHTML('beforeend', `<div style="position:fixed;inset:auto 12px 12px 12px;z-index:99;padding:12px;border-radius:12px;background:#3a0d12;color:#fff">앱을 시작하는 중 문제가 생겼어요: ${esc(e.message)}</div>`);
+}
+</script>
+</body>
+</html>
