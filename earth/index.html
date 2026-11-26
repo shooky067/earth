@@ -411,7 +411,7 @@ button:disabled:active { transform: none; }
  * 나의 가상 지구본 — 앱 본체
  * ========================================================= */
 const APP_NAME = '나의 가상 지구본';
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const FORMAT_VERSION = 1;
 const DEG = Math.PI / 180;
 const EARTH_KM = 6371.0088;
@@ -1344,7 +1344,10 @@ function drawRoute(ctx, time) {
 let SUN = { lat: 0, lon: 0 };
 let rafId = 0, dirty = true, lastFrame = 0, lastIdleRender = 0;
 const perf = { samples: [], downgraded: {} };
-function requestRender() { dirty = true; if (!rafId && !document.hidden) rafId = requestAnimationFrame(frame); }
+let inFrame = false;
+/* 프레임 예약은 이 함수 하나로만: 이미 예약됐거나 그리는 중이면 표시만 하고 새로 예약하지 않음 */
+function scheduleFrame() { if (!rafId && !document.hidden) rafId = requestAnimationFrame(frame); }
+function requestRender() { dirty = true; if (!inFrame) scheduleFrame(); }
 function continuous() {
   return anim.fly || anim.inertia || view.padB !== view.padBT || view.padR !== view.padRT || (S.autoRotate && autoRotateActive()) || sim.playing || (route.a && route.b) || tour.running || input.pointers.size > 0;
 }
@@ -1354,8 +1357,15 @@ function frame(t) {
   const dt = lastFrame ? Math.min(100, t - lastFrame) : 16;
   // 자동 회전·경로 비행기처럼 덜 중요한 움직임은 약 30fps로 제한해 배터리 절약
   const lowPri = !anim.fly && !anim.inertia && !sim.playing && input.pointers.size === 0 && !dirty;
-  if (lowPri && continuous() && t - lastFrame < 30) { rafId = requestAnimationFrame(frame); return; }
+  if (lowPri && continuous() && t - lastFrame < 30) { scheduleFrame(); return; }
   lastFrame = t;
+  inFrame = true;
+  try { renderFrame(t, dt); } finally { inFrame = false; }
+  if (continuous() || dirty) scheduleFrame();
+  else lastFrame = 0;
+}
+function renderFrame(t, dt) {
+  dirty = false;
   stepAnimations(t, dt);
   if (!sim.live || sim.playing) { /* 시뮬레이션 시각 */ }
   SUN = subsolar(simDate());
@@ -1364,9 +1374,6 @@ function frame(t) {
   if (GL.gl && !GL.lost) drawGL(); else if (GL.failed) draw2D();
   drawOverlay(t);
   measurePerf(performance.now() - t0, dt);
-  dirty = false;
-  if (continuous()) rafId = requestAnimationFrame(frame);
-  else lastFrame = 0;
   compassUpdate();
 }
 function measurePerf(work, dt) {

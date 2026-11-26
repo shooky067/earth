@@ -1,6 +1,6 @@
 /* 나의 가상 지구본 — 서비스 워커
  * 앱을 고친 뒤 반영이 안 되면 아래 CACHE_VERSION 숫자를 올려 주세요. */
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const APP_CACHE = 'globe-app-' + CACHE_VERSION;
 const FONT_CACHE = 'globe-font-' + CACHE_VERSION;
 const APP_FILES = [
